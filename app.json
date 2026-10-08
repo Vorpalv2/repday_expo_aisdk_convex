@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "Repday",
+    "slug": "repday",
+    "scheme": "repday",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "web": {
+      "output": "server"
+    },
+    "splash": {
+      "backgroundColor": "#eaf3fb"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.repday.workout"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#eaf3fb"
+      },
+      "package": "com.repday.workout",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-notifications",
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "com.repday.workout.widgets",
+          "enableAndroid": false,
+          "frequentUpdates": true,
+          "groupIdentifier": "group.com.repday.workout"
+        }
+      ],
+      [
+        "expo-sharing",
+        {
+          "ios": {
+            "enabled": true,
+            "appGroupId": "group.com.repday.workout",
+            "activationRule": {
+              "supportsText": true,
+              "supportsFileWithMaxCount": 1
+            }
+          },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "text/plain"
+            ],
+            "multipleShareMimeTypes": [
+              "text/plain"
+            ]
+          }
+        }
+      ],
+      "expo-secure-store"
+    ]
+  }
+}
