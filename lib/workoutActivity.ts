@@ -11,6 +11,11 @@ let activityInstance: any;
 
 function getActivityFactory() {
   if (!activityFactory) {
+    // Expo Go and development binaries built before expo-widgets was added do
+    // not contain this native module. Check before importing the package,
+    // whose iOS entry point requires ExpoWidgets immediately.
+    const { requireOptionalNativeModule } = require('expo-modules-core');
+    if (!requireOptionalNativeModule('ExpoWidgets')) return null;
     const { createLiveActivity } = require('expo-widgets');
     const { Text } = require('@expo/ui/swift-ui');
     const React = require('react');
@@ -57,6 +62,7 @@ export function updateWorkoutSurface(state: ActivityState) {
   if (Platform.OS === 'ios') {
     try {
       const factory = getActivityFactory();
+      if (!factory) return;
       const props = { ...state, startedAt: Date.now() - state.elapsed * 1000, pausedAt: state.pausedAt ? Date.now() : null };
       const existing = factory.getInstances();
       if (existing.length) {
@@ -79,6 +85,7 @@ export function stopWorkoutSurface() {
   if (Platform.OS === 'ios') {
     try {
       const factory = getActivityFactory();
+      if (!factory) return;
       const instances = factory.getInstances();
       instances.forEach((item: any) => item.end('immediate'));
       activityInstance = null;

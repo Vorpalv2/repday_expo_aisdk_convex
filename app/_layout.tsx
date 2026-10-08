@@ -25,7 +25,7 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   setup: { flex: 1, backgroundColor: '#fff', justifyContent: 'center', paddingHorizontal: 30, maxWidth: 480, width: '100%', alignSelf: 'center' },
   logo: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#17191d', alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
-  logoText: { color: '#fff', fontSize: 24, fontWeight: '800' },
-  title: { color: '#17191d', fontSize: 27, fontWeight: '700' },
-  body: { color: '#77808a', fontSize: 14, lineHeight: 21, marginTop: 10 },
+  logoText: { color: '#fff', fontSize: 28, fontWeight: '800' },
+  title: { color: '#17191d', fontSize: 32, fontWeight: '700' },
+  body: { color: '#77808a', fontSize: 17, lineHeight: 24, marginTop: 10 },
 });

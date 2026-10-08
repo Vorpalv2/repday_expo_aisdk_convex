@@ -8,6 +8,9 @@
     "ios": "expo start --ios",
     "android": "expo start --android",
     "web": "expo start --web",
+    "export:web": "expo export --platform web",
+    "deploy:web:preview": "npx eas-cli@latest env:exec --environment preview 'npm run export:web' && npx eas-cli@latest deploy --environment preview",
+    "deploy:web:prod": "npx eas-cli@latest env:exec --environment production 'npm run export:web' && npx eas-cli@latest deploy --environment production --prod",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

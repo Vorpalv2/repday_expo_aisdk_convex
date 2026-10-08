@@ -24,10 +24,12 @@ export const getMyData = query({
       weeklyPlan: settings?.weeklyPlan ?? {},
       activeWorkout: settings?.activeWorkout ?? null,
       working: settings?.working ?? null,
+      focusDraft: settings?.focusDraft ?? null,
       restEndsAt: settings?.restEndsAt ?? null,
       selectedSessionId: settings?.selectedSessionId ?? null,
       country: settings?.country ?? 'India',
       timeZone: settings?.timeZone ?? 'Asia/Kolkata',
+      theme: settings?.theme ?? 'light',
     };
   },
 });
@@ -69,10 +71,12 @@ export const saveWorkoutSettings = mutation({
     weeklyPlan: v.any(),
     activeWorkout: v.any(),
     working: v.any(),
+    focusDraft: v.any(),
     restEndsAt: v.union(v.number(), v.null()),
     selectedSessionId: v.union(v.string(), v.null()),
     country: v.string(),
     timeZone: v.string(),
+    theme: v.union(v.literal('light'), v.literal('dark'), v.literal('cyberpunk')),
   },
   handler: async (ctx, data) => {
     const ownerId = await getAuthUserId(ctx);

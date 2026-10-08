@@ -22,10 +22,12 @@ export default defineSchema({
     weeklyPlan: v.any(),
     activeWorkout: v.any(),
     working: v.any(),
+    focusDraft: v.optional(v.any()),
     restEndsAt: v.union(v.number(), v.null()),
     selectedSessionId: v.union(v.string(), v.null()),
     country: v.optional(v.string()),
     timeZone: v.optional(v.string()),
+    theme: v.optional(v.union(v.literal('light'), v.literal('dark'), v.literal('cyberpunk'))),
     updatedAt: v.number(),
   }).index('by_owner', ['ownerId']),
 });

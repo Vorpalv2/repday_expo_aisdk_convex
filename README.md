@@ -22,3 +22,14 @@ The app loads the full [exercises-dataset](https://github.com/hasaneyldrm/exerci
 ## Run
 
 Use Expo Go or an iOS/Android simulator with `npm start`. `npm run web` starts the web target.
+
+## Deploy the web app with EAS Hosting
+
+The web app uses Expo Router's `server` output because the AI workout import is an API route. EAS Hosting serves both the web UI and that route.
+
+1. Sign in to Expo with `npx eas-cli@latest login`.
+2. Link this app to an Expo project with `npx eas-cli@latest project:init` when prompted. This adds the project ID to the Expo app configuration.
+3. Add `EXPO_PUBLIC_CONVEX_URL` to both the `preview` and `production` EAS environments as a plaintext variable. Add `AI_GATEWAY_API_KEY` as a sensitive variable and optionally `AI_GATEWAY_MODEL` to enable AI import. EAS Hosting does not support secret-visibility variables; keep the Gateway key sensitive and server-only.
+4. Run `npm run deploy:web:preview` for a preview deployment, or `npm run deploy:web:prod` for production.
+
+The deploy script exports the web bundle before uploading it. Convex still needs to be deployed and configured separately, including its Auth environment variables. Do not put server secrets in `EXPO_PUBLIC_*` variables or commit them to Git.
