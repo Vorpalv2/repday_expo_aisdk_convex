@@ -61,6 +61,39 @@
         }
       ],
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "ExpoWidgetsTarget",
+                  "bundleIdentifier": "com.repday.workout.widgets",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.repday.workout"
+                    ]
+                  }
+                },
+                {
+                  "targetName": "expo-sharing-extension",
+                  "bundleIdentifier": "com.repday.workout.expo-sharing-extension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.repday.workout"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "950c36e5-6e1d-4cca-ab05-a51f3ac470d8"
+      }
+    },
+    "owner": "vorpalv2"
   }
 }
