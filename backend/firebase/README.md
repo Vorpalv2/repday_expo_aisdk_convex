@@ -6,15 +6,8 @@ Configure the Firebase web app values in `.env.local` and enable Email/Password 
 
 Profile photo uploads use Cloud Storage, but a Storage bucket has not been provisioned for this project. Firebase currently requires the Blaze plan to create or use a Cloud Storage for Firebase bucket. Do not deploy `storage.rules` or expect profile photo uploads to work until the project owner has enabled billing and created the bucket.
 
-## Firebase AI Logic
+## AI Coach
 
-AI Coach and workout-note parsing use Firebase AI Logic through the Gemini Developer API. Calls are made from the app using the provider wrapper in `ai.ts`; no Vercel AI Gateway key or app API route is used. The selected Gemini model is controlled by `EXPO_PUBLIC_FIREBASE_AI_MODEL` and defaults to `gemini-3.5-flash`.
+AI Coach and workout-note parsing use the Vercel AI SDK through the app API routes in `app/api/`. The provider key stays server-side as `AI_GATEWAY_API_KEY`. Firebase remains responsible for authentication and workout data on this branch; it does not receive AI requests.
 
-Firebase AI Logic has been enabled for the `repday-expo` web app. Configure App Check before relying on AI requests:
-
-- Web production builds need a reCAPTCHA Enterprise site key in `EXPO_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY`, and the web app must be registered with that provider in Firebase App Check.
-- Native development builds use the App Check debug provider. Register the generated debug token in Firebase Console > App Check > the app > Manage debug tokens.
-- Native production builds use Play Integrity on Android and App Attest with DeviceCheck fallback on iOS. Register both apps and configure those providers in Firebase App Check.
-- Rebuild the iOS and Android apps after adding the React Native Firebase native modules. OTA updates cannot add native modules to an already-installed binary.
-
-The prompts include the workout context the user asks about, so that context is sent to Google through Firebase AI Logic. Gemini Developer API model availability and free-tier quotas can change; App Check protects the project from unauthorized clients but does not provide a per-user usage limit.
+AI Coach model choices are validated server-side and sent through Vercel AI Gateway. Native app builds call the deployed API origin configured by `EXPO_PUBLIC_API_URL`; web uses same-origin API routes.
