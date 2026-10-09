@@ -66,6 +66,19 @@ export const syncHistory = mutation({
   },
 });
 
+export const deleteHistoryItem = mutation({
+  args: { clientId: v.string() },
+  handler: async (ctx, { clientId }) => {
+    const ownerId = await getAuthUserId(ctx);
+    if (!ownerId) throw new Error('Sign in to manage workout history.');
+    const row = await ctx.db
+      .query('workoutHistory')
+      .withIndex('by_owner_and_client', (q) => q.eq('ownerId', ownerId).eq('clientId', clientId))
+      .first();
+    if (row) await ctx.db.delete(row._id);
+  },
+});
+
 export const saveWorkoutSettings = mutation({
   args: {
     weeklyPlan: v.any(),
