@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, AppState, BackHandler, Dimensions, Easing, FlatList, KeyboardAvoidingView, LayoutAnimation, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, UIManager, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useMutation, usePaginatedQuery, useQuery, useConvexAuth } from 'convex/react';
-import { useAuthActions } from '@convex-dev/auth/react';
-import { api } from '../convex/_generated/api';
+import { useBackendAuth } from '../backend/BackendProvider';
+import { useWorkoutData } from '../backend/useWorkoutData';
+import type { ActiveWorkout, FocusDraft, Move, Session, SetEntry, WorkoutRecord } from '../backend/contracts';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,12 +19,6 @@ import { parseWorkoutNote } from '../lib/workoutNoteParser';
 import useIncomingShare from '../lib/incomingShare';
 import { SignInScreen } from '../components/SignInScreen';
 
-type SetEntry={weight:string;reps:string;done:boolean};
-type Move={key:string;name:string;sets:SetEntry[];restSeconds?:string;image?:string;gif_url?:string;target?:string;equipment?:string;instructions?:Record<string,string>;instruction_steps?:Record<string,string[]>};
-type Session={id:string;name:string;description:string;accent:string;moves:Move[]};
-type FocusDraft={day:string;session:Session};
-type ActiveWorkout={startedAt:number;pausedAt:number|null;pausedMs:number};
-type WorkoutRecord={id:string;name:string;startedAt:number;duration:number;volume:number;sets:number;exercises:number;session:Session};
 const WEEK_DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const EXERCISE_CATALOG_COUNT=1324;
 const INSTRUCTION_LANGUAGES:Record<string,string>={en:'English',es:'Español',it:'Italiano',tr:'Türkçe',ru:'Русский',zh:'中文',hi:'हिन्दी',pl:'Polski',ko:'한국어',fr:'Français'};
@@ -80,7 +74,7 @@ const formatTime=(value:number)=>`${Math.floor(value/60).toString().padStart(2,'
 function Icon({name,color=colors.ink,size=21,strokeWidth=2}:{name:string;color?:string;size?:number;strokeWidth?:number}) { const common={stroke:color,strokeWidth,strokeLinecap:'round' as const,strokeLinejoin:'round' as const,fill:'none' as const}; return <Svg width={size} height={size} viewBox="0 0 24 24">{name==='home'?<><Path {...common} d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/><Path {...common} d="M9 21v-7h6v7"/></>:name==='train'?<><Path {...common} d="M4 10v4m4-7v10m8-10v10m4-7v4M8 12h8"/></>:name==='progress'?<><Rect {...common} x="4" y="12" width="4" height="8" rx="1"/><Rect {...common} x="10" y="8" width="4" height="12" rx="1"/><Rect {...common} x="16" y="4" width="4" height="16" rx="1"/></>:name==='profile'?<><Circle {...common} cx="12" cy="8" r="4"/><Path {...common} d="M4 21a8 8 0 0 1 16 0"/></>:name==='search'?<><Circle {...common} cx="10.8" cy="10.8" r="6.5"/><Path {...common} d="m16 16 4 4"/></>:name==='plus'?<Path {...common} d="M12 5v14M5 12h14"/>:name==='down'?<Path {...common} d="M12 5v14m-7-7 7 7 7-7"/>:name==='edit'?<Path {...common} d="m15 5 4 4M4 20l4-.8L19.3 7.9a2.1 2.1 0 0 0-3-3L5 16.2z"/>:name==='eye'?<><Path {...common} d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"/><Circle {...common} cx="12" cy="12" r="2.7"/></>:name==='eyeOff'?<><Path {...common} d="m3 3 18 18M10.6 6.2A10.7 10.7 0 0 1 12 6c6.1 0 9.5 6 9.5 6a15 15 0 0 1-3.1 3.6M6.2 6.2C3.8 7.8 2.5 12 2.5 12s3.4 6 9.5 6c.9 0 1.8-.2 2.6-.4"/><Path {...common} d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></>:name==='trash'?<><Path {...common} d="M4 7h16M10 11v6m4-6v6M5 7l1 13h12l1-13M9 7V4h6v3"/></>:name==='calendar'?<><Rect {...common} x="3" y="5" width="18" height="16" rx="2"/><Path {...common} d="M16 3v4M8 3v4M3 10h18"/></>:name==='chevron'?<Path {...common} d="m6 9 6 6 6-6"/>:name==='arrowRight'?<Path {...common} d="M5 12h14m-6-6 6 6-6 6"/>:name==='return'?<Path {...common} d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 6 6"/>:name==='minimize'?<Path {...common} d="M5 12h14"/>:name==='coach'?<><Path {...common} d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><Circle {...common} cx="12" cy="12" r="3"/></>:<Path {...common} d="m5 12 4 4L19 6"/>}</Svg> }
 
 export default function HomeScreen(){
- const {isLoading,isAuthenticated}=useConvexAuth();
+ const {isLoading,isAuthenticated}=useBackendAuth();
  if(isLoading)return <LoadingScreen/>;
  if(!isAuthenticated)return <SignInScreen/>;
  return <WorkoutApp/>;
@@ -128,30 +122,21 @@ function WorkoutApp(){
  const [profilePhotoUploading,setProfilePhotoUploading]=useState(false); const [profilePhotoPreview,setProfilePhotoPreview]=useState<string|null>(null); const [profilePhotoError,setProfilePhotoError]=useState(''); const [profileEmailVisible,setProfileEmailVisible]=useState(false);
  currentTheme=theme;Object.assign(colors,themePalettes[theme]);
  const [sessions,setSessions]=useState<Session[]>(initial); const [weeklyPlan,setWeeklyPlan]=useState<Record<number,string|null>>({}); const [activityExpanded,setActivityExpanded]=useState(false); const [activityCollapsed,setActivityCollapsed]=useState(true); const [activityDefaultCollapsed,setActivityDefaultCollapsed]=useState(true); const [activityMonth,setActivityMonth]=useState(()=>new Date()); const [planDay,setPlanDay]=useState<number|null>(null); const [pendingPlanChange,setPendingPlanChange]=useState<{day:number;sessionId:string|null}|null>(null); const [tab,setTab]=useState('Home'); const [modal,setModal]=useState<'create'|'edit'|'picker'|'import'|'workout'|'summary'|'exercise'|'moveEdit'|'mediaPicker'|'plan'|'splitChoice'|'splits'|'country'|'exerciseFilter'|'historyDetail'|null>(null); const [selected,setSelected]=useState(''); const [editReturn,setEditReturn]=useState<'home'|'splits'>('home'); const [historyDetailRecord,setHistoryDetailRecord]=useState<WorkoutRecord|null>(null); const [draftName,setDraftName]=useState(''); const [draftDesc,setDraftDesc]=useState(''); const [query,setQuery]=useState(''); const [exerciseSearch,setExerciseSearch]=useState(''); const [exerciseFilters,setExerciseFilters]=useState({category:'',target:'',equipment:''}); const [filterKind,setFilterKind]=useState<'category'|'target'|'equipment'>('category'); const [filterSearch,setFilterSearch]=useState(''); const [noteText,setNoteText]=useState(''); const [importDrafts,setImportDrafts]=useState<Session[]>([]); const [importError,setImportError]=useState(''); const [aiImporting,setAiImporting]=useState(false); const [confirmDelete,setConfirmDelete]=useState(false); const [confirmRemoveExercise,setConfirmRemoveExercise]=useState<Move|null>(null); const [exerciseDraft,setExerciseDraft]=useState<Move|null>(null); const [editingSplitTitle,setEditingSplitTitle]=useState(false); const [splitTitleDraft,setSplitTitleDraft]=useState(''); const [splitDrawerExpanded,setSplitDrawerExpanded]=useState(false); const [drawerPreviewOpen,setDrawerPreviewOpen]=useState(false); const drawerPreviewOpacity=useRef(new Animated.Value(0)).current; const drawerPreviewTranslateY=useRef(new Animated.Value(12)).current; const [mediaKind,setMediaKind]=useState<'image'|'gif'>('image'); const [mediaQuery,setMediaQuery]=useState(''); const [exerciseLibrary,setExerciseLibrary]=useState<Exercise[]>(EXERCISES); const [libraryLoaded,setLibraryLoaded]=useState(false); const [libraryLoading,setLibraryLoading]=useState(true); const [previewExercise,setPreviewExercise]=useState<Exercise|null>(null); const [previewMedia,setPreviewMedia]=useState<'animation'|'image'>('animation'); const [previewReturn,setPreviewReturn]=useState<'edit'|'workout'|'search'>('edit'); const [previewLanguage,setPreviewLanguage]=useState('en'); const [languageMenuOpen,setLanguageMenuOpen]=useState(false); const [animationLoading,setAnimationLoading]=useState(false); const [animationMissing,setAnimationMissing]=useState(false); const [working,setWorking]=useState<Session|null>(null); const [focusDraft,setFocusDraft]=useState<FocusDraft|null>(null); const [editSource,setEditSource]=useState<'library'|'today'>('library'); const [activeWorkout,setActiveWorkout]=useState<ActiveWorkout|null>(null); const [confirmDiscardWorkout,setConfirmDiscardWorkout]=useState(false); const [confirmFinishWorkout,setConfirmFinishWorkout]=useState(false); const [coachMessages,setCoachMessages]=useState<{role:'user'|'assistant';text:string}[]>([]); const [coachInput,setCoachInput]=useState(''); const [coachBusy,setCoachBusy]=useState(false); const [coachError,setCoachError]=useState(''); const [history,setHistory]=useState<WorkoutRecord[]>([]); const [progressExpanded,setProgressExpanded]=useState(false); const [progressMonth,setProgressMonth]=useState(()=>new Date()); const [historyDays,setHistoryDays]=useState<7|14|30>(7); const [historyRangeOpen,setHistoryRangeOpen]=useState(false); const [historyPickerOpen,setHistoryPickerOpen]=useState(false); const [historyPickerMonth,setHistoryPickerMonth]=useState(()=>new Date()); const [selectedHistoryDate,setSelectedHistoryDate]=useState<Date|null>(null); const [historyDeleteTarget,setHistoryDeleteTarget]=useState<WorkoutRecord|null>(null); const [historyDeleteError,setHistoryDeleteError]=useState(''); const [historyDeleteStatus,setHistoryDeleteStatus]=useState<'confirm'|'deleting'|'deleted'>('confirm'); const [toast,setToast]=useState<string|null>(null); const toastMotion=useRef(new Animated.Value(0)).current; const toastTimer=useRef<ReturnType<typeof setTimeout>|null>(null); const [restEndsAt,setRestEndsAt]=useState<number|null>(null); const [restDurationSeconds,setRestDurationSeconds]=useState(90); const [now,setNow]=useState(Date.now()); const [country,setCountry]=useState('India'); const [timeZone,setTimeZone]=useState('Asia/Kolkata'); const [summarySeconds,setSummarySeconds]=useState(0); const [storageReady,setStorageReady]=useState(false); const [notificationsReady,setNotificationsReady]=useState(false); const restNotification=useRef<string|null>(null); const lastIncomingNote=useRef(''); const incomingShare=useIncomingShare(); const [streak,setStreak]=useState(0); const rise=useRef(new Animated.Value(0)).current; const activeDotPulse=useRef(new Animated.Value(1)).current; const catalogRequest=useRef<Promise<Exercise[]>|null>(null); const catalogRef=useRef<Exercise[]>(EXERCISES);
- const {isAuthenticated}=useConvexAuth();
- const {signOut}=useAuthActions();
+ const {isAuthenticated,signOut}=useBackendAuth();
  const deletedHistoryIdsRef=useRef(new Set<string>());
  const legacyImportStartedRef=useRef<string|null>(null);
  const [localOwnerId,setLocalOwnerId]=useState<string|null>(null);
  const [cloudOwnerId,setCloudOwnerId]=useState<string|null>(null);
  const [activeDataHydrated,setActiveDataHydrated]=useState(false);
- const remoteSettings=useQuery(api.workouts.getMySettings,isAuthenticated?{}:'skip');
- const remoteSplits=useQuery(api.workouts.getMySplits,isAuthenticated?{}:'skip');
- const {results:remoteHistoryResults,status:remoteHistoryStatus,loadMore:loadMoreHistory}=usePaginatedQuery(api.workouts.getMyHistoryPage,isAuthenticated?{}:'skip',{initialNumItems:30});
- const shouldLoadActiveWorkout=Boolean(isAuthenticated&&(!remoteSettings?.userId||cloudOwnerId!==remoteSettings.userId));
- const remoteActiveWorkout=useQuery(api.workouts.getMyActiveWorkout,shouldLoadActiveWorkout?{}:'skip');
- const profilePhotoUrl=useQuery(api.profilePhotos.getMyUrl,isAuthenticated&&tab==='Profile'?{}:'skip');
- const syncSplitsCloud=useMutation(api.workouts.syncSplits);
- const syncHistoryCloud=useMutation(api.workouts.syncHistory); const upsertHistoryItemCloud=useMutation(api.workouts.upsertHistoryItem); const deleteHistoryCloud=useMutation(api.workouts.deleteHistoryItem);
- const upsertSplitCloud=useMutation(api.workouts.upsertSplit); const deleteSplitCloud=useMutation(api.workouts.deleteSplit);
- const reorderSplitPositionsCloud=useMutation(api.workouts.reorderSplitPositions);
- const saveSettingsCloud=useMutation(api.workouts.saveWorkoutSettings);
- const saveActiveWorkoutCloud=useMutation(api.workouts.saveActiveWorkout);
- const updateActiveWorkoutSetCloud=useMutation(api.workouts.updateActiveWorkoutSet);
- const addActiveWorkoutSetCloud=useMutation(api.workouts.addActiveWorkoutSet);
- const migrateLegacyActiveWorkoutCloud=useMutation(api.workouts.migrateLegacyActiveWorkout);
- const generateProfilePhotoUploadUrl=useMutation(api.profilePhotos.generateUploadUrl);
- const saveProfilePhoto=useMutation(api.profilePhotos.save);
+ const {
+  remoteSettings,remoteSplits,remoteHistoryResults,remoteHistoryStatus,loadMoreHistory,
+  remoteActiveWorkout,profilePhotoUrl,syncSplits:syncSplitsCloud,syncHistory:syncHistoryCloud,
+  upsertHistoryItem:upsertHistoryItemCloud,deleteHistoryItem:deleteHistoryCloud,
+  upsertSplit:upsertSplitCloud,deleteSplit:deleteSplitCloud,reorderSplitPositions:reorderSplitPositionsCloud,
+  saveSettings:saveSettingsCloud,saveActiveWorkout:saveActiveWorkoutCloud,
+  updateActiveWorkoutSet:updateActiveWorkoutSetCloud,addActiveWorkoutSet:addActiveWorkoutSetCloud,
+  migrateLegacyActiveWorkout:migrateLegacyActiveWorkoutCloud,uploadProfilePhoto,
+ }=useWorkoutData({isAuthenticated,tab,cloudOwnerId});
  const notifyToast=(message:string)=>{setToast(message);toastMotion.stopAnimation();toastMotion.setValue(0);Animated.timing(toastMotion,{toValue:1,duration:180,easing:Easing.out(Easing.cubic),useNativeDriver:true}).start();if(toastTimer.current)clearTimeout(toastTimer.current);toastTimer.current=setTimeout(()=>Animated.timing(toastMotion,{toValue:0,duration:160,useNativeDriver:true}).start(({finished})=>{if(finished)setToast(null);}),1840);};
  const chooseProfilePhoto=async()=>{
   if(profilePhotoUploading)return;
@@ -168,11 +153,7 @@ function WorkoutApp(){
    if(!imageResponse.ok)throw new Error('Could not read the selected image.');
    const imageBlob=await imageResponse.blob();
    if(imageBlob.size>5*1024*1024)throw new Error('Choose an image smaller than 5 MB.');
-   const uploadUrl=await generateProfilePhotoUploadUrl({});
-   const uploadResponse=await fetch(uploadUrl,{method:'POST',headers:{'Content-Type':asset.mimeType||imageBlob.type||'image/jpeg'},body:imageBlob});
-   if(!uploadResponse.ok)throw new Error('The image could not be uploaded.');
-   const {storageId}=await uploadResponse.json();
-   await saveProfilePhoto({storageId});
+   await uploadProfilePhoto(imageBlob,asset.mimeType||imageBlob.type||'image/jpeg');
    setProfilePhotoPreview(null);
    notifyToast('Profile photo updated');
   }catch(error){

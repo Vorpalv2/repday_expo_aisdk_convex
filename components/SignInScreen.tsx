@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useAuthActions } from '@convex-dev/auth/react';
+import { useBackendAuth } from '../backend/BackendProvider';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export function SignInScreen() {
-  const { signIn } = useAuthActions();
+  const { signIn } = useBackendAuth();
   const [flow, setFlow] = useState<'signIn' | 'signUp'>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,7 +21,7 @@ export function SignInScreen() {
     setError('');
     setBusy(true);
     try {
-      await signIn('password', { email: email.trim(), password, flow });
+      await signIn(email.trim(), password, flow);
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message.toLowerCase() : '';
       if (flow === 'signUp' && /(already exists|already registered|account.*exists|email.*taken)/.test(detail)) {
