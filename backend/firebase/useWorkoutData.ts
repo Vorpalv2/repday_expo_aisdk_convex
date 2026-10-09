@@ -52,9 +52,10 @@ export type UseWorkoutDataOptions = {
   isAuthenticated: boolean;
   tab: string;
   cloudOwnerId: string | null;
+  googlePhotoUrl: string | null;
 };
 
-export function useWorkoutData({ isAuthenticated, tab }: UseWorkoutDataOptions): WorkoutBackendBindings {
+export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWorkoutDataOptions): WorkoutBackendBindings {
   const uid = isAuthenticated ? auth?.currentUser?.uid ?? null : null;
   const [remoteSettings, setRemoteSettings] = useState<WorkoutSettings | null>();
   const [remoteSplits, setRemoteSplits] = useState<WorkoutBackendBindings['remoteSplits']>();
@@ -162,7 +163,8 @@ export function useWorkoutData({ isAuthenticated, tab }: UseWorkoutDataOptions):
     if (tab === 'Profile') {
       const photoRef = doc(db, 'users', uid, 'profilePhotos', 'current');
       unsubscribers.push(onSnapshot(photoRef, (snapshot) => {
-        setProfilePhotoUrl(snapshot.exists() ? String(snapshot.data().downloadURL ?? '') || null : null);
+        const uploadedPhotoUrl = snapshot.exists() ? String(snapshot.data().downloadURL ?? '') || null : null;
+        setProfilePhotoUrl(uploadedPhotoUrl ?? googlePhotoUrl);
       }));
     } else {
       setProfilePhotoUrl(null);
@@ -171,7 +173,7 @@ export function useWorkoutData({ isAuthenticated, tab }: UseWorkoutDataOptions):
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [uid, tab]);
+  }, [uid, tab, googlePhotoUrl]);
 
   const loadMoreHistory = useCallback(async (count: number) => {
     if (!uid || !db || !historyCursor.current || remoteHistoryStatus !== 'CanLoadMore') return;
