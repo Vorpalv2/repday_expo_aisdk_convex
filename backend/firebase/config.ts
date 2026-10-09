@@ -8,6 +8,11 @@ export const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
+// OAuth client IDs are identifiers, not client secrets. The Firebase-native
+// Google Sign-In module requires the Web client ID to mint Firebase credentials.
+export const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+  ?? '52797741746-trsn76ncr8896trc8shu6j1r068kqvi3.apps.googleusercontent.com';
+
 export const isFirebaseConfigured = Object.values(firebaseConfig).every(
   (value) => typeof value === 'string' && value.length > 0,
 );

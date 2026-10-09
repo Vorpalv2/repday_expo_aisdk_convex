@@ -4,5 +4,18 @@
   },
   "storage": {
     "rules": "storage.rules"
+  },
+  "auth": {
+    "authorizedDomains": [
+      "localhost",
+      "repday.expo.app"
+    ],
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Repday",
+        "supportEmail": "aakashanand1995@gmail.com"
+      }
+    }
   }
 }

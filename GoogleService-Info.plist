@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>52797741746-mhbcdnc588hh6alt5fckac9hh1ckuvtd.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.52797741746-mhbcdnc588hh6alt5fckac9hh1ckuvtd</string>
+	<key>WEB_CLIENT_ID</key>
+	<string>52797741746-trsn76ncr8896trc8shu6j1r068kqvi3.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyCeLN2q53l2nHA6rnY1iHiV_yuU5pcThRQ</string>
+	<key>GCM_SENDER_ID</key>
+	<string>52797741746</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.repday.workout</string>
+	<key>PROJECT_ID</key>
+	<string>repday-expo</string>
+	<key>STORAGE_BUCKET</key>
+	<string>repday-expo.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false/>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false/>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true/>
+	<key>IS_GCM_ENABLED</key>
+	<true/>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true/>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:52797741746:ios:f2f23298cd44cb58c4c7ab</string>
+</dict>
+</plist>

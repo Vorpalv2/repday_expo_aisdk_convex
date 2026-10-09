@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "52797741746",
+    "project_id": "repday-expo",
+    "storage_bucket": "repday-expo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:52797741746:android:ecfff222ddbb4570c4c7ab",
+        "android_client_info": {
+          "package_name": "com.repday.workout"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "52797741746-6jge2oo4trhmpb3dnmbcg0e6to7s1fm9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.repday.workout",
+            "certificate_hash": "1b23d0557381b4941f1e995c1201a2f6b7d15575"
+          }
+        },
+        {
+          "client_id": "52797741746-trsn76ncr8896trc8shu6j1r068kqvi3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCcA-xbNKnQMRYDx2QususSam5oBBuhGzQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "52797741746-trsn76ncr8896trc8shu6j1r068kqvi3.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "52797741746-mhbcdnc588hh6alt5fckac9hh1ckuvtd.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.repday.workout"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

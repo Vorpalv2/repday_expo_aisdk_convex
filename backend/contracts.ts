@@ -37,7 +37,10 @@ export type WorkoutRecord = {
 export interface BackendAuth {
   isLoading: boolean;
   isAuthenticated: boolean;
+  googleLinked: boolean;
   signIn: (email: string, password: string, flow: AuthFlow) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  linkGoogleAccount: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 

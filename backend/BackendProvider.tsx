@@ -8,9 +8,15 @@ import {
 } from 'firebase/auth';
 import { StyleSheet, Text, View } from 'react-native';
 import { auth, isFirebaseConfigured } from './firebase/client';
+import { linkGoogleProvider, signInWithGoogleProvider } from './firebase/googleSignIn';
 import type { AuthFlow, BackendAuth } from './contracts';
 
-type AuthContextValue = BackendAuth & { user: User | null };
+type AuthContextValue = BackendAuth & {
+  user: User | null;
+  googleLinked: boolean;
+  signInWithGoogle: () => Promise<void>;
+  linkGoogleAccount: () => Promise<void>;
+};
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function FirebaseAuthBridge({ children }: React.PropsWithChildren) {
@@ -32,6 +38,7 @@ function FirebaseAuthBridge({ children }: React.PropsWithChildren) {
     user,
     isLoading,
     isAuthenticated: Boolean(user),
+    googleLinked: Boolean(user?.providerData.some((provider) => provider.providerId === 'google.com')),
     signIn: async (email: string, password: string, flow: AuthFlow) => {
       if (!auth) throw new Error('Firebase is not configured for this build.');
       try {
@@ -41,6 +48,38 @@ function FirebaseAuthBridge({ children }: React.PropsWithChildren) {
         const code = (error as { code?: string }).code;
         if (code === 'auth/email-already-in-use') throw new Error('An account already exists for this email.');
         if (code === 'auth/weak-password') throw new Error('Use a password with at least 8 characters.');
+        if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+          throw new Error('Check your email and password, then try again.');
+        }
+        throw error;
+      }
+    },
+    signInWithGoogle: async () => {
+      if (!auth) throw new Error('Firebase is not configured for this build.');
+      try {
+        await signInWithGoogleProvider(auth);
+      } catch (error) {
+        const code = (error as { code?: string }).code;
+        if (code === 'auth/account-exists-with-different-credential' || code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
+          throw new Error('An account already uses this email. Sign in with your email and password, then link Google from Profile.');
+        }
+        if (code === 'auth/popup-closed-by-user') throw new Error('Google sign-in was cancelled.');
+        if (code === 'auth/unauthorized-domain') throw new Error('This website is not authorized for Google sign-in in Firebase.');
+        throw error;
+      }
+    },
+    linkGoogleAccount: async () => {
+      if (!auth?.currentUser) throw new Error('Sign in before linking a Google account.');
+      try {
+        const result = await linkGoogleProvider(auth.currentUser);
+        setUser(result.user);
+      } catch (error) {
+        const code = (error as { code?: string }).code;
+        if (code === 'auth/credential-already-in-use' || code === 'auth/provider-already-linked') {
+          throw new Error('That Google account is already linked to a Repday account.');
+        }
+        if (code === 'auth/popup-closed-by-user') throw new Error('Google linking was cancelled.');
+        if (code === 'auth/unauthorized-domain') throw new Error('This website is not authorized for Google sign-in in Firebase.');
         throw error;
       }
     },
