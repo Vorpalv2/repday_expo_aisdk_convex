@@ -28,6 +28,12 @@ export default defineSchema({
     country: v.optional(v.string()),
     timeZone: v.optional(v.string()),
     theme: v.optional(v.union(v.literal('light'), v.literal('dark'), v.literal('cyberpunk'))),
+    activityDefaultCollapsed: v.optional(v.boolean()),
+    updatedAt: v.number(),
+  }).index('by_owner', ['ownerId']),
+  profilePhotos: defineTable({
+    ownerId: v.id('users'),
+    storageId: v.id('_storage'),
     updatedAt: v.number(),
   }).index('by_owner', ['ownerId']),
 });

@@ -30,6 +30,7 @@ export const getMyData = query({
       country: settings?.country ?? 'India',
       timeZone: settings?.timeZone ?? 'Asia/Kolkata',
       theme: settings?.theme ?? 'light',
+      activityDefaultCollapsed: settings?.activityDefaultCollapsed ?? true,
     };
   },
 });
@@ -90,6 +91,7 @@ export const saveWorkoutSettings = mutation({
     country: v.string(),
     timeZone: v.string(),
     theme: v.union(v.literal('light'), v.literal('dark'), v.literal('cyberpunk')),
+    activityDefaultCollapsed: v.boolean(),
   },
   handler: async (ctx, data) => {
     const ownerId = await getAuthUserId(ctx);

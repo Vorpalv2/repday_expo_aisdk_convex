@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as http from "../http.js";
+import type * as profilePhotos from "../profilePhotos.js";
 import type * as workouts from "../workouts.js";
 
 import type {
@@ -21,6 +22,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   http: typeof http;
+  profilePhotos: typeof profilePhotos;
   workouts: typeof workouts;
 }>;
 
