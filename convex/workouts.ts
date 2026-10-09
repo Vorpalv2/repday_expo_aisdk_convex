@@ -1,4 +1,5 @@
 import { getAuthUserId } from '@convex-dev/auth/server';
+import { paginationOptsValidator } from 'convex/server';
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 
@@ -64,6 +65,19 @@ export const getMyHistory = query({
       userId: ownerId,
       history: rows.sort((a, b) => a.startedAt - b.startedAt).map((row) => row.data),
     };
+  },
+});
+
+export const getMyHistoryPage = query({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    const ownerId = await getAuthUserId(ctx);
+    if (!ownerId) return { page: [], isDone: true, continueCursor: '' };
+    const result = await ctx.db.query('workoutHistory')
+      .withIndex('by_owner_and_started_at', (q) => q.eq('ownerId', ownerId))
+      .order('desc')
+      .paginate(paginationOpts);
+    return { ...result, page: result.page.map((row) => row.data) };
   },
 });
 
@@ -164,7 +178,13 @@ export const saveActiveWorkout = mutation({
     }
     const existing = current?.sessionKey === sessionKey ? current : null;
     const next = { ownerId, sessionKey, activeWorkout: data.activeWorkout, working: template, restEndsAt: data.restEndsAt, updatedAt: Date.now() };
-    if (existing) await ctx.db.patch(existing._id, next);
+    if (existing) {
+      if (JSON.stringify(existing.activeWorkout) !== JSON.stringify(next.activeWorkout)
+        || JSON.stringify(existing.working) !== JSON.stringify(next.working)
+        || existing.restEndsAt !== next.restEndsAt) {
+        await ctx.db.patch(existing._id, next);
+      }
+    }
     else {
       await ctx.db.insert('activeWorkoutSessions', next);
       for (const [moveIndex, move] of data.working.moves.entries()) {
@@ -191,8 +211,11 @@ export const updateActiveWorkoutSet = mutation({
       .withIndex('by_owner_session_move_set', (q) => q.eq('ownerId', ownerId).eq('sessionKey', sessionKey).eq('moveIndex', moveIndex).eq('setIndex', setIndex))
       .first();
     if (!row) throw new Error('This workout set is no longer active.');
-    if (field === 'done') await ctx.db.patch(row._id, { done: Boolean(value) });
-    else await ctx.db.patch(row._id, { [field]: String(value) });
+    if (field === 'done') {
+      if (row.done !== Boolean(value)) await ctx.db.patch(row._id, { done: Boolean(value) });
+    } else if (row[field] !== String(value)) {
+      await ctx.db.patch(row._id, { [field]: String(value) });
+    }
   },
 });
 
@@ -278,6 +301,51 @@ export const syncSplits = mutation({
   },
 });
 
+export const upsertSplit = mutation({
+  args: { item: v.any(), position: v.number() },
+  handler: async (ctx, { item, position }) => {
+    const ownerId = await getAuthUserId(ctx);
+    if (!ownerId) throw new Error('Sign in to save your workout split.');
+    const clientId = String(item.id);
+    const existing = await ctx.db.query('workoutSplits')
+      .withIndex('by_owner_and_client', (q) => q.eq('ownerId', ownerId).eq('clientId', clientId))
+      .first();
+    if (existing) {
+      if (existing.position !== position || JSON.stringify(existing.data) !== JSON.stringify(item)) {
+        await ctx.db.patch(existing._id, { data: item, position, updatedAt: Date.now() });
+      }
+    } else {
+      await ctx.db.insert('workoutSplits', { ownerId, clientId, data: item, position, updatedAt: Date.now() });
+    }
+  },
+});
+
+export const deleteSplit = mutation({
+  args: { clientId: v.string() },
+  handler: async (ctx, { clientId }) => {
+    const ownerId = await getAuthUserId(ctx);
+    if (!ownerId) throw new Error('Sign in to delete your workout split.');
+    const existing = await ctx.db.query('workoutSplits')
+      .withIndex('by_owner_and_client', (q) => q.eq('ownerId', ownerId).eq('clientId', clientId))
+      .first();
+    if (existing) await ctx.db.delete(existing._id);
+  },
+});
+
+export const reorderSplitPositions = mutation({
+  args: { clientIds: v.array(v.string()) },
+  handler: async (ctx, { clientIds }) => {
+    const ownerId = await getAuthUserId(ctx);
+    if (!ownerId) throw new Error('Sign in to reorder your workout splits.');
+    for (const [position, clientId] of clientIds.entries()) {
+      const row = await ctx.db.query('workoutSplits')
+        .withIndex('by_owner_and_client', (q) => q.eq('ownerId', ownerId).eq('clientId', clientId))
+        .first();
+      if (row && row.position !== position) await ctx.db.patch(row._id, { position, updatedAt: Date.now() });
+    }
+  },
+});
+
 export const syncHistory = mutation({
   args: { items: v.array(v.any()) },
   handler: async (ctx, { items }) => {
@@ -294,6 +362,26 @@ export const syncHistory = mutation({
         }
       }
       else await ctx.db.insert('workoutHistory', { ownerId, clientId, data: item, startedAt: Number(item.startedAt) || 0 });
+    }
+  },
+});
+
+export const upsertHistoryItem = mutation({
+  args: { item: v.any() },
+  handler: async (ctx, { item }) => {
+    const ownerId = await getAuthUserId(ctx);
+    if (!ownerId) throw new Error('Sign in to save workout history.');
+    const clientId = String(item.id);
+    const startedAt = Number(item.startedAt) || 0;
+    const existing = await ctx.db.query('workoutHistory')
+      .withIndex('by_owner_and_client', (q) => q.eq('ownerId', ownerId).eq('clientId', clientId))
+      .first();
+    if (existing) {
+      if (existing.startedAt !== startedAt || JSON.stringify(existing.data) !== JSON.stringify(item)) {
+        await ctx.db.patch(existing._id, { data: item, startedAt });
+      }
+    } else {
+      await ctx.db.insert('workoutHistory', { ownerId, clientId, data: item, startedAt });
     }
   },
 });
@@ -325,7 +413,10 @@ export const saveWorkoutSettings = mutation({
     const ownerId = await getAuthUserId(ctx);
     if (!ownerId) throw new Error('Sign in to save your workout plan.');
     const current = await ctx.db.query('workoutSettings').withIndex('by_owner', (q) => q.eq('ownerId', ownerId)).first();
-    if (current) await ctx.db.patch(current._id, { ...data, updatedAt: Date.now() });
+    if (current) {
+      const unchanged = Object.entries(data).every(([key, value]) => JSON.stringify((current as any)[key]) === JSON.stringify(value));
+      if (!unchanged) await ctx.db.patch(current._id, { ...data, updatedAt: Date.now() });
+    }
     else await ctx.db.insert('workoutSettings', { ownerId, ...data, updatedAt: Date.now() });
   },
 });
