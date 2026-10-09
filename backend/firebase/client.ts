@@ -34,4 +34,5 @@ function createAuth() {
 export const auth = createAuth();
 export const db = app ? getFirestore(app) : null;
 export const storage = app ? getStorage(app) : null;
+export { app };
 export { isFirebaseConfigured };
