@@ -1,7 +1,7 @@
-# Firebase backend adapter
+# Firebase adapter
 
-This folder is reserved for the Firebase implementation of the shared backend contract.
+This is the active backend implementation on this branch. It contains Firebase app/Auth initialization and the Firestore/Storage adapter used by the app. Keep provider-specific calls here; screens use `backend/useWorkoutData.ts` and the app-facing types in `backend/contracts.ts`.
 
-The app is not connected to Firebase yet. Before selecting Firebase in a build, this adapter needs Firebase Auth, Firestore subscriptions and mutations, and Cloud Storage photo uploads. Keep those Firebase SDK calls in this folder; screens should depend on the backend contract rather than Firebase APIs.
+Configure the Firebase web app values in `.env.local` and enable Email/Password Auth. The default Standard Firestore database for `repday-expo` is in `asia-south2`; `firestore.rules` has been deployed and restricts each signed-in user to their own `users/{uid}/...` data. The rules are important because client Firebase configuration is public.
 
-The Convex implementation remains in `backend/convex/`. Convex server functions stay in the repository's root `convex/` directory because that is the configured Convex project layout.
+Profile photo uploads use Cloud Storage, but a Storage bucket has not been provisioned for this project. Firebase currently requires the Blaze plan to create or use a Cloud Storage for Firebase bucket. Do not deploy `storage.rules` or expect profile photo uploads to work until the project owner has enabled billing and created the bucket.

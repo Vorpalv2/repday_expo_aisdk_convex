@@ -1,4 +1,4 @@
-/** Public Firebase app configuration. Supply project-specific values at build time. */
+/** Firebase web app configuration is public; security belongs in Firebase Auth and Rules. */
 export const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -8,4 +8,6 @@ export const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-export const isFirebaseConfigured = Object.values(firebaseConfig).every(Boolean);
+export const isFirebaseConfigured = Object.values(firebaseConfig).every(
+  (value) => typeof value === 'string' && value.length > 0,
+);

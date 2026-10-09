@@ -1,35 +1,29 @@
 # Repday
 
-A small Expo strength training tracker inspired by the supplied mobile design. It includes starter Push, Pull, and Legs splits, user-created splits, exercise search, editable set weight and rep targets, a live workout timer, pause and finish controls, session summary, weekly planning, and progress tracking.
+Repday is an Expo workout-planning app with workout splits, active sessions, history, exercise search, and profile preferences.
 
-## Cloud backend and sign-in
+## Backend on this branch
 
-Workout splits, exercise prescriptions and media metadata, set completion, workout history, weekly plans, the selected split, the active workout timer, and rest timer state are saved per account in Convex. Email/password sign-up and sign-in use Convex Auth. Auth sessions are held in Expo SecureStore on iOS and Android. Existing on-device workout data is migrated into the first account that signs in; a different account starts with its own data.
+This branch is the Firebase implementation. The app uses Firebase Authentication, Cloud Firestore, and Cloud Storage. UI screens call the stable app-facing operations in `backend/useWorkoutData.ts` and the auth context in `backend/BackendProvider.tsx`; Firebase SDK calls live under `backend/firebase/`. There is no runtime backend selector on this branch.
 
-The app already has a development deployment linked in `.env.local` (ignored by Git). To create or connect a deployment on another machine:
+The Convex version remains on the Convex branch. Firebase and Convex accounts and data are separate; this branch does not read or write Convex.
 
-1. Install dependencies with `npm install`.
-2. Run `npx convex dev` and sign in to Convex. Choose the `repday-workout-tracker` project or create a separate one.
-3. Run `npx @convex-dev/auth --skip-git-check` to configure the server-side JWT signing keys and check the auth routes. Keep generated keys private.
-4. Run `npm start` to load the generated `EXPO_PUBLIC_CONVEX_URL` and start Expo.
+## Set up Firebase
 
-The backend schema and authenticated functions live in `convex/`. Convex Auth is currently in beta. The current password flow has no email verification or password reset configured; set up a mail provider before production use.
+1. Create a Firebase project and register a web app.
+2. Enable **Email/Password** under Authentication → Sign-in method.
+3. Create a Cloud Firestore database and a Cloud Storage bucket.
+4. Copy `.env.example` to `.env.local` and fill in the Firebase web app configuration values.
+5. Deploy the access rules in `firestore.rules` and `storage.rules` with the Firebase CLI.
+6. Install dependencies with `npm install`, then start Expo with `npm run web`, `npm run ios`, or `npm run android`.
 
-## Exercise library
+The browser uses Firebase's web authentication persistence. Native builds initialize Firebase Auth with React Native AsyncStorage persistence. Firebase web configuration is included in the client app; authorization must be enforced by Firebase Authentication and Security Rules. Never put server credentials in `EXPO_PUBLIC_*` variables.
 
-The app loads the full [exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset) catalog in the background so exercise and split cards can use repository thumbnails; exercise detail views use its GIF demonstrations. The source JSON is 16.6 MB and is fetched at runtime rather than bundled.
+## Backend layout
 
-## Run
+- `backend/contracts.ts` defines app-facing data shapes and operations. It does not detect or choose a backend.
+- `backend/BackendProvider.tsx` provides Firebase Authentication to the app.
+- `backend/firebase/` contains Firebase initialization and Firestore/Storage operations.
+- `backend/useWorkoutData.ts` is the stable hook import used by screens and binds to Firebase on this branch.
 
-Use Expo Go or an iOS/Android simulator with `npm start`. `npm run web` starts the web target.
-
-## Deploy the web app with EAS Hosting
-
-The web app uses Expo Router's `server` output because the AI workout import is an API route. EAS Hosting serves both the web UI and that route.
-
-1. Sign in to Expo with `npx eas-cli@latest login`.
-2. Link this app to an Expo project with `npx eas-cli@latest project:init` when prompted. This adds the project ID to the Expo app configuration.
-3. Add `EXPO_PUBLIC_CONVEX_URL` to both the `preview` and `production` EAS environments as a plaintext variable. Add `AI_GATEWAY_API_KEY` as a sensitive variable and optionally `AI_GATEWAY_MODEL` to enable AI import. EAS Hosting does not support secret-visibility variables; keep the Gateway key sensitive and server-only.
-4. Run `npm run deploy:web:preview` for a preview deployment, or `npm run deploy:web:prod` for production.
-
-The deploy script exports the web bundle before uploading it. Convex still needs to be deployed and configured separately, including its Auth environment variables. Do not put server secrets in `EXPO_PUBLIC_*` variables or commit them to Git.
+See [`backend/README.md`](backend/README.md) for the adapter boundary and data layout.
