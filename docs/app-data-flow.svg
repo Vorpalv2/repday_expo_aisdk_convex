@@ -1,0 +1,165 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1460" viewBox="0 0 1600 1460" role="img" aria-labelledby="title description">
+  <title id="title">Repday application data flow</title>
+  <desc id="description">Architecture flow diagram for Repday, showing user actions in the Expo app, local React and browser storage, Convex Auth and reactive queries, mutations into Convex database tables and file storage, plus external exercise data and AI services.</desc>
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="5" stdDeviation="9" flood-color="#182235" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10" fill="none" stroke="#66758a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="blueArrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10" fill="none" stroke="#3478f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="greenArrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10" fill="none" stroke="#26a269" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      .title { font: 700 42px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #17191d; }
+      .subtitle { font: 400 19px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #687382; }
+      .lane { font: 700 15px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #3478f6; letter-spacing: 1.5px; }
+      .head { font: 700 23px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #17191d; }
+      .body { font: 400 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #526071; }
+      .small { font: 500 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #748093; }
+      .mono { font: 600 14px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #26364a; }
+      .white { fill: #fff; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1460" fill="#f6f8fb"/>
+  <circle cx="1490" cy="90" r="120" fill="#e8f1ff"/>
+  <circle cx="80" cy="1360" r="135" fill="#e9f6fc"/>
+  <text x="70" y="82" class="title">Repday · App data flow</text>
+  <text x="72" y="119" class="subtitle">Where app state lives, which Convex functions run, and which data stays with external services.</text>
+
+  <!-- Main swimlanes -->
+  <rect x="55" y="158" width="555" height="1035" rx="30" fill="#eef4ff"/>
+  <rect x="632" y="158" width="555" height="1035" rx="30" fill="#edf8fc"/>
+  <rect x="1209" y="158" width="336" height="1035" rx="30" fill="#f2f4f7"/>
+  <text x="82" y="195" class="lane">1 · USER + EXPO APP</text>
+  <text x="660" y="195" class="lane">2 · CONVEX BACKEND</text>
+  <text x="1237" y="195" class="lane">3 · DATA + SERVICES</text>
+
+  <!-- Client entry and local state -->
+  <rect x="82" y="220" width="500" height="116" rx="20" fill="#fff" stroke="#d5e1f2" stroke-width="2" filter="url(#shadow)"/>
+  <text x="108" y="258" class="head">Browser or mobile app opens</text>
+  <text x="108" y="288" class="body">Expo UI starts; Convex Auth restores/checks sign-in.</text>
+  <text x="108" y="316" class="mono">Browser auth storage · SecureStore on iOS/Android</text>
+
+  <path d="M332 338 L332 371" stroke="#66758a" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <rect x="82" y="382" width="500" height="112" rx="20" fill="#fff" stroke="#d5e1f2" stroke-width="2" filter="url(#shadow)"/>
+  <text x="108" y="420" class="head">React state + local persistence</text>
+  <text x="108" y="450" class="body">UI updates locally first; selected data is saved on-device.</text>
+  <text x="108" y="478" class="mono">AsyncStorage · web uses browser storage</text>
+
+  <!-- Read subscriptions -->
+  <text x="98" y="535" class="lane">SIGNED-IN STARTUP · REACTIVE READS</text>
+  <rect x="82" y="554" width="500" height="190" rx="20" fill="#fff" stroke="#bcd3ff" stroke-width="2" filter="url(#shadow)"/>
+  <text x="108" y="590" class="head">App subscribes to account data</text>
+  <text x="108" y="623" class="mono">getMySettings · preferences + weekly plan</text>
+  <text x="108" y="652" class="mono">getMySplits · saved workout splits</text>
+  <text x="108" y="681" class="mono">getMyHistoryPage · latest 30, then pages</text>
+  <text x="108" y="710" class="mono">getMyActiveWorkout · session restore as needed</text>
+  <path d="M585 634 L656 634" stroke="#3478f6" stroke-width="2.5" fill="none" marker-end="url(#blueArrow)"/>
+  <text x="590" y="617" class="small">subscribe</text>
+  <path d="M656 701 L585 701" stroke="#26a269" stroke-width="2.5" fill="none" marker-end="url(#greenArrow)"/>
+  <text x="587" y="729" class="small">live result</text>
+
+  <!-- User actions -->
+  <text x="98" y="789" class="lane">USER ACTIONS · LOCAL FIRST, THEN SYNC</text>
+  <rect x="82" y="808" width="500" height="152" rx="20" fill="#fff" stroke="#d5e1f2" stroke-width="2"/>
+  <text x="108" y="844" class="head">Plans and saved splits</text>
+  <text x="108" y="876" class="body">Edit today → focusDraft in settings; saved split edit → split row.</text>
+  <text x="108" y="906" class="mono">saveWorkoutSettings · upsertSplit · deleteSplit</text>
+  <text x="108" y="934" class="body">History finish/delete → upsertHistoryItem / deleteHistoryItem</text>
+
+  <rect x="82" y="978" width="500" height="184" rx="20" fill="#fff" stroke="#d5e1f2" stroke-width="2"/>
+  <text x="108" y="1014" class="head">Active workout</text>
+  <text x="108" y="1046" class="body">Start is local first, then creates a cloud session + set rows.</text>
+  <text x="108" y="1076" class="mono">saveActiveWorkout · updateActiveWorkoutSet</text>
+  <text x="108" y="1106" class="body">A set edit/check targets its indexed set row; finish saves history</text>
+  <text x="108" y="1133" class="body">and clears the active session. Changes sync while signed in.</text>
+
+  <!-- Convex auth and function groups -->
+  <rect x="659" y="220" width="500" height="116" rx="20" fill="#fff" stroke="#c8e6f0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="685" y="258" class="head">Convex Auth</text>
+  <text x="685" y="288" class="body">Validates the account for user-scoped queries and mutations.</text>
+  <text x="685" y="316" class="small">Signed-out app skips account data queries and cloud sync.</text>
+  <path d="M582 277 L650 277" stroke="#66758a" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="659" y="382" width="500" height="168" rx="20" fill="#fff" stroke="#c8e6f0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="685" y="420" class="head">Queries · live subscriptions</text>
+  <text x="685" y="452" class="body">Settings + user identity · splits · paginated history</text>
+  <text x="685" y="482" class="body">Active session + its set rows · profile photo URL on Profile</text>
+  <text x="685" y="516" class="small">Only relevant data changes cause subscribed results to update.</text>
+  <path d="M910 338 L910 371" stroke="#66758a" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="659" y="574" width="500" height="188" rx="20" fill="#fff" stroke="#c8e6f0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="685" y="612" class="head">Mutations · authenticated writes</text>
+  <text x="685" y="644" class="mono">saveWorkoutSettings · upsertSplit</text>
+  <text x="685" y="674" class="mono">updateActiveWorkoutSet · upsertHistoryItem</text>
+  <text x="685" y="704" class="body">Indexed lookup, no-op checks, focused writes where applicable.</text>
+  <text x="685" y="734" class="small">Legacy full-list sync is kept for migration / bulk import.</text>
+  <path d="M582 884 C624 884 624 678 650 678" stroke="#3478f6" stroke-width="2.5" fill="none" marker-end="url(#blueArrow)"/>
+  <path d="M582 1060 C624 1060 624 714 650 714" stroke="#3478f6" stroke-width="2.5" fill="none" marker-end="url(#blueArrow)"/>
+
+  <rect x="659" y="790" width="500" height="170" rx="20" fill="#fff" stroke="#c8e6f0" stroke-width="2"/>
+  <text x="685" y="828" class="head">Profile photo</text>
+  <text x="685" y="860" class="body">Generate upload URL → upload image → save storage ID metadata.</text>
+  <text x="685" y="890" class="mono">generateUploadUrl · profilePhotos.save</text>
+  <text x="685" y="920" class="mono">getMyUrl runs only while Profile tab is open</text>
+  <path d="M582 701 C625 701 625 422 650 422" stroke="#26a269" stroke-width="2" fill="none" marker-end="url(#greenArrow)"/>
+
+  <rect x="659" y="988" width="500" height="174" rx="20" fill="#fff" stroke="#c8e6f0" stroke-width="2"/>
+  <text x="685" y="1026" class="head">AI requests (not Convex DB)</text>
+  <text x="685" y="1058" class="body">Coach sends a question + local workout context.</text>
+  <text x="685" y="1088" class="body">Workout import sends a note for split extraction.</text>
+  <text x="685" y="1118" class="mono">/api/coach · /api/analyze-workout</text>
+  <path d="M1159 1070 L1230 1070" stroke="#66758a" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Storage and external providers -->
+  <rect x="1236" y="220" width="282" height="250" rx="20" fill="#fff" stroke="#d9dfe8" stroke-width="2" filter="url(#shadow)"/>
+  <text x="1260" y="260" class="head">Convex database</text>
+  <text x="1260" y="298" class="mono">workoutSettings</text>
+  <text x="1260" y="328" class="mono">workoutSplits</text>
+  <text x="1260" y="358" class="mono">workoutHistory</text>
+  <text x="1260" y="388" class="mono">activeWorkoutSessions</text>
+  <text x="1260" y="418" class="mono">activeWorkoutSets</text>
+  <text x="1260" y="448" class="mono">profilePhotos metadata</text>
+  <path d="M1159 452 L1228 452" stroke="#3478f6" stroke-width="2.5" fill="none" marker-end="url(#blueArrow)"/>
+  <path d="M1228 485 L1159 485" stroke="#26a269" stroke-width="2.5" fill="none" marker-end="url(#greenArrow)"/>
+  <text x="1163" y="475" class="small">read/write</text>
+
+  <rect x="1236" y="508" width="282" height="140" rx="20" fill="#fff" stroke="#d9dfe8" stroke-width="2"/>
+  <text x="1260" y="548" class="head">Convex Storage</text>
+  <text x="1260" y="580" class="body">Profile image file bytes</text>
+  <text x="1260" y="610" class="small">Database stores the file reference.</text>
+  <path d="M1159 854 C1200 854 1200 578 1228 578" stroke="#66758a" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="1236" y="686" width="282" height="176" rx="20" fill="#fff" stroke="#d9dfe8" stroke-width="2"/>
+  <text x="1260" y="726" class="head">Exercise dataset</text>
+  <text x="1260" y="758" class="body">Catalog and media fetched</text>
+  <text x="1260" y="786" class="body">on demand from GitHub.</text>
+  <text x="1260" y="824" class="small">This is external API/CDN traffic,</text>
+  <text x="1260" y="846" class="small">not reads from Convex tables.</text>
+  <path d="M582 445 C900 445 1115 730 1228 770" stroke="#66758a" stroke-width="2" fill="none" stroke-dasharray="7 7" marker-end="url(#arrow)"/>
+
+  <rect x="1236" y="900" width="282" height="224" rx="20" fill="#fff" stroke="#d9dfe8" stroke-width="2"/>
+  <text x="1260" y="940" class="head">AI Gateway</text>
+  <text x="1260" y="972" class="body">Generates coach replies and</text>
+  <text x="1260" y="1000" class="body">turns notes into split drafts.</text>
+  <text x="1260" y="1038" class="small">AI response returns to the app;</text>
+  <text x="1260" y="1064" class="small">the API route does not save it</text>
+  <text x="1260" y="1090" class="small">to Convex workout tables.</text>
+
+  <!-- Legend and caveat -->
+  <rect x="70" y="1220" width="1460" height="174" rx="24" fill="#fff" stroke="#dce5f0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="102" y="1262" class="head">How to read the arrows</text>
+  <path d="M105 1300 L190 1300" stroke="#3478f6" stroke-width="3" marker-end="url(#blueArrow)"/>
+  <text x="210" y="1306" class="body">App → Convex mutation / upload</text>
+  <path d="M500 1300 L585 1300" stroke="#26a269" stroke-width="3" marker-end="url(#greenArrow)"/>
+  <text x="605" y="1306" class="body">Convex → app query result</text>
+  <path d="M900 1300 L985 1300" stroke="#66758a" stroke-width="2" stroke-dasharray="7 7" marker-end="url(#arrow)"/>
+  <text x="1005" y="1306" class="body">External API / media request</text>
+  <text x="102" y="1354" class="small">Queries are reactive. A changed record can refresh the subscriptions that read it; local-first UI updates do not mean cloud persistence is skipped.</text>
+</svg>
