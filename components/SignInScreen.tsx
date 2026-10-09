@@ -56,6 +56,11 @@ export function SignInScreen() {
             <Pressable style={[styles.submit, (busy || !email.trim() || !password) && styles.disabled]} onPress={submit} disabled={busy || !email.trim() || !password}>
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{flow === 'signIn' ? 'Sign in' : 'Create account'}　›</Text>}
             </Pressable>
+            <View style={styles.divider}><View style={styles.dividerLine}/><Text style={styles.dividerLabel}>OR CONTINUE WITH</Text><View style={styles.dividerLine}/></View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Continue with Google" accessibilityHint="Google sign-in is a visual preview and is not active on this backend." style={styles.googleButton} onPress={() => {}}>
+              <View style={styles.googleMark}><Text style={styles.googleMarkText}>G</Text></View>
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </Pressable>
           </View>
           <Pressable style={styles.switch} onPress={() => { setError(''); setFlow(flow === 'signIn' ? 'signUp' : 'signIn'); }}>
             <Text style={styles.switchText}>{flow === 'signIn' ? 'New to Repday? ' : 'Already have an account? '}<Text style={styles.switchAction}>{flow === 'signIn' ? 'Create an account' : 'Sign in'}</Text></Text>
@@ -81,6 +86,13 @@ const styles = StyleSheet.create({
   submit: { minHeight: 54, borderRadius: 28, backgroundColor: '#17191d', marginTop: 21, justifyContent: 'center', alignItems: 'center' },
   disabled: { opacity: 0.45 },
   submitText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 20 },
+  dividerLine: { height: 1, flex: 1, backgroundColor: '#e9edf1' },
+  dividerLabel: { color: '#9298a1', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  googleButton: { minHeight: 54, borderRadius: 28, borderWidth: 1, borderColor: '#e1e5ea', backgroundColor: '#fff', marginTop: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 11 },
+  googleButtonText: { color: '#17191d', fontSize: 16, fontWeight: '700' },
+  googleMark: { width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: '#e9edf1', alignItems: 'center', justifyContent: 'center' },
+  googleMarkText: { color: '#4285f4', fontSize: 15, fontWeight: '800' },
   error: { color: '#c33d3d', fontSize: 14, lineHeight: 20, marginTop: 11 },
   switch: { alignSelf: 'center', padding: 14, marginTop: 13 },
   switchText: { color: '#777f89', fontSize: 16 },
