@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1370" viewBox="0 0 1200 1370" role="img" aria-labelledby="title description">
+  <title id="title">Edit Today weight change data flow</title>
+  <desc id="description">A diagram showing a weight edit moving from local React draft state through local browser persistence and a Convex settings mutation, then back to the UI through the reactive settings query.</desc>
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="5" stdDeviation="9" flood-color="#182235" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10" fill="none" stroke="#74839a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="blueArrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10" fill="none" stroke="#3478f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      .title { font: 700 40px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #17191d; }
+      .subtitle { font: 400 19px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #687382; }
+      .label { font: 700 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #3478f6; letter-spacing: 1.2px; }
+      .heading { font: 700 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #17191d; }
+      .body { font: 400 17px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #526071; }
+      .mono { font: 600 16px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #26364a; }
+      .small { font: 500 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #768294; }
+      .white { fill: #fff; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="1370" fill="#f6f8fb"/>
+  <circle cx="1080" cy="108" r="95" fill="#e8f1ff"/>
+  <circle cx="1100" cy="1260" r="142" fill="#e9f6fc"/>
+  <text x="72" y="90" class="title">Edit today: where a weight change goes</text>
+  <text x="74" y="126" class="subtitle">The “Edit today” plan is saved separately from a workout split and an active workout.</text>
+
+  <!-- Local editing phase -->
+  <text x="76" y="190" class="label">1 · LOCAL EDIT</text>
+  <rect x="72" y="214" width="700" height="132" rx="22" fill="#ffffff" stroke="#dce5f0" stroke-width="2" filter="url(#shadow)"/>
+  <circle cx="118" cy="280" r="25" fill="#eaf2ff"/>
+  <text x="118" y="287" text-anchor="middle" class="heading" fill="#3478f6">1</text>
+  <text x="160" y="263" class="heading">Change the weight field</text>
+  <text x="160" y="295" class="body">While typing, the value is held in the exercise editor’s local draft.</text>
+  <text x="160" y="322" class="mono">exerciseDraft · React useState</text>
+
+  <path d="M422 348 L422 386" stroke="#74839a" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <rect x="72" y="398" width="700" height="132" rx="22" fill="#ffffff" stroke="#dce5f0" stroke-width="2" filter="url(#shadow)"/>
+  <circle cx="118" cy="464" r="25" fill="#eaf2ff"/>
+  <text x="118" y="471" text-anchor="middle" class="heading" fill="#3478f6">2</text>
+  <text x="160" y="447" class="heading">Tap “Save exercise”</text>
+  <text x="160" y="479" class="body">In Edit today mode, this updates the saved-for-today draft.</text>
+  <text x="160" y="506" class="mono">patchEditorSession → focusDraft · React useState</text>
+
+  <!-- Branch into browser storage and Convex sync -->
+  <path d="M422 532 L422 572 L260 572 L260 606" stroke="#74839a" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M422 572 L784 572 L784 606" stroke="#3478f6" stroke-width="2.5" fill="none" marker-end="url(#blueArrow)"/>
+
+  <rect x="72" y="618" width="370" height="128" rx="22" fill="#ffffff" stroke="#dce5f0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="100" y="655" class="label">LOCAL SAVE</text>
+  <text x="100" y="686" class="heading">Browser storage</text>
+  <text x="100" y="716" class="mono">AsyncStorage · repday.focusDraft</text>
+
+  <rect x="482" y="618" width="576" height="128" rx="22" fill="#edf4ff" stroke="#bcd3ff" stroke-width="2" filter="url(#shadow)"/>
+  <text x="512" y="655" class="label">SIGNED-IN CLOUD SYNC</text>
+  <text x="512" y="686" class="heading">Settings sync effect runs</text>
+  <text x="512" y="716" class="mono">saveSettingsCloud({ focusDraft, …settings })</text>
+
+  <path d="M770 748 L770 793" stroke="#3478f6" stroke-width="2.5" fill="none" marker-end="url(#blueArrow)"/>
+  <rect x="482" y="806" width="576" height="132" rx="22" fill="#ffffff" stroke="#bcd3ff" stroke-width="2" filter="url(#shadow)"/>
+  <circle cx="526" cy="872" r="25" fill="#3478f6"/>
+  <text x="526" y="879" text-anchor="middle" class="heading white">3</text>
+  <text x="568" y="855" class="heading">Convex mutation</text>
+  <text x="568" y="887" class="mono">workouts.saveWorkoutSettings</text>
+  <text x="568" y="915" class="body">Sends settings, including the focusDraft.</text>
+
+  <path d="M770 940 L770 985" stroke="#3478f6" stroke-width="2.5" fill="none" marker-end="url(#blueArrow)"/>
+  <rect x="482" y="998" width="576" height="146" rx="22" fill="#ffffff" stroke="#bcd3ff" stroke-width="2" filter="url(#shadow)"/>
+  <circle cx="526" cy="1071" r="25" fill="#3478f6"/>
+  <text x="526" y="1078" text-anchor="middle" class="heading white">4</text>
+  <text x="568" y="1046" class="heading">Find the user’s settings row</text>
+  <text x="568" y="1078" class="mono">workoutSettings · by_owner index</text>
+  <text x="568" y="1110" class="body">Patch if changed; insert a row if this is the first save.</text>
+
+  <!-- Result branches -->
+  <path d="M770 1146 L770 1180 L425 1180 L425 1213" stroke="#3478f6" stroke-width="2.5" fill="none" marker-end="url(#blueArrow)"/>
+  <path d="M770 1146 L770 1180 L925 1180 L925 1213" stroke="#74839a" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <rect x="72" y="1224" width="500" height="112" rx="20" fill="#eaf2ff" stroke="#bcd3ff" stroke-width="2"/>
+  <text x="100" y="1263" class="label">IF VALUES CHANGED</text>
+  <text x="100" y="1295" class="heading">Patch settings → getMySettings updates</text>
+  <text x="100" y="1320" class="small">The reactive query sends the latest settings to the UI.</text>
+  <rect x="624" y="1224" width="434" height="112" rx="20" fill="#ffffff" stroke="#dce5f0" stroke-width="2"/>
+  <text x="652" y="1263" class="label" fill="#768294">IF UNCHANGED</text>
+  <text x="652" y="1295" class="heading">Skip the database patch</text>
+  <text x="652" y="1320" class="small">No settings write is made.</text>
+
+  <!-- signed-out callout -->
+  <rect x="836" y="214" width="270" height="132" rx="22" fill="#fff8e8" stroke="#f2d79d" stroke-width="2"/>
+  <text x="862" y="253" class="label" fill="#9b6c00">SIGNED OUT</text>
+  <text x="862" y="285" class="heading">Local only</text>
+  <text x="862" y="314" class="body">The cloud sync effect skips the mutation.</text>
+  <path d="M772 280 L820 280" stroke="#d7b96d" stroke-width="2" stroke-dasharray="5 6"/>
+
+  <text x="74" y="1355" class="small">This flow is for editing today’s plan. Editing a saved split or an active workout uses different mutations.</text>
+</svg>
