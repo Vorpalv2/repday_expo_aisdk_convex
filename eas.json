@@ -5,8 +5,11 @@
       "environment": "production",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "preview"
     },
-    "production": {}
+    "production": {
+      "channel": "production"
+    }
   }
 }

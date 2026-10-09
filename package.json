@@ -11,6 +11,8 @@
     "export:web": "expo export --platform web",
     "deploy:web:preview": "npx eas-cli@latest env:exec preview 'npm run export:web' && npx eas-cli@latest deploy --environment preview",
     "deploy:web:prod": "npx eas-cli@latest env:exec production 'npm run export:web' && npx eas-cli@latest deploy --environment production --prod",
+    "update:preview": "npx eas-cli@latest update --channel preview --environment production",
+    "update:prod": "npx eas-cli@latest update --channel production --environment production",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -26,6 +28,7 @@
     "expo-router": "~57.0.24",
     "expo-sharing": "^57.0.22",
     "expo-status-bar": "~57.0.1",
+    "expo-updates": "~57.0.25",
     "expo-widgets": "^57.0.23",
     "firebase": "^13.0.0",
     "react": "19.2.3",

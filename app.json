@@ -101,6 +101,12 @@
         "projectId": "950c36e5-6e1d-4cca-ab05-a51f3ac470d8"
       }
     },
-    "owner": "vorpalv2"
+    "owner": "vorpalv2",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/950c36e5-6e1d-4cca-ab05-a51f3ac470d8"
+    }
   }
 }
