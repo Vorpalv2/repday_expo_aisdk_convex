@@ -1,6 +1,7 @@
 import { getApp } from 'firebase/app';
 import { initializeAppCheck, getToken, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import { getAI, getGenerativeModel, GoogleAIBackend } from 'firebase/ai';
+import Constants from 'expo-constants';
 import { z } from 'zod';
 
 const DEFAULT_MODEL = 'gemini-3.5-flash';
@@ -26,7 +27,8 @@ async function getProtectedAI() {
   if (!appCheckReady) {
     appCheckReady = (async () => {
       const app = getApp();
-      const siteKey = process.env.EXPO_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY;
+      const siteKey = process.env.EXPO_PUBLIC_FIREBASE_APP_CHECK_SITE_KEY
+        || Constants.expoConfig?.extra?.firebaseAppCheckSiteKey;
       if (__DEV__) {
         // Firebase's debug provider is intended for local development only.
         (globalThis as typeof globalThis & { FIREBASE_APPCHECK_DEBUG_TOKEN?: boolean })
