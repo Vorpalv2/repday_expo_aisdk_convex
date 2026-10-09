@@ -20,10 +20,10 @@ export default defineSchema({
   workoutSettings: defineTable({
     ownerId: v.id('users'),
     weeklyPlan: v.any(),
-    activeWorkout: v.any(),
-    working: v.any(),
+    activeWorkout: v.optional(v.any()),
+    working: v.optional(v.any()),
     focusDraft: v.optional(v.any()),
-    restEndsAt: v.union(v.number(), v.null()),
+    restEndsAt: v.optional(v.union(v.number(), v.null())),
     selectedSessionId: v.union(v.string(), v.null()),
     country: v.optional(v.string()),
     timeZone: v.optional(v.string()),
@@ -31,6 +31,24 @@ export default defineSchema({
     activityDefaultCollapsed: v.optional(v.boolean()),
     updatedAt: v.number(),
   }).index('by_owner', ['ownerId']),
+  activeWorkoutSessions: defineTable({
+    ownerId: v.id('users'),
+    sessionKey: v.string(),
+    activeWorkout: v.any(),
+    working: v.any(),
+    restEndsAt: v.union(v.number(), v.null()),
+    updatedAt: v.number(),
+  }).index('by_owner', ['ownerId']),
+  activeWorkoutSets: defineTable({
+    ownerId: v.id('users'),
+    sessionKey: v.string(),
+    moveIndex: v.number(),
+    setIndex: v.number(),
+    weight: v.string(),
+    reps: v.string(),
+    done: v.boolean(),
+  }).index('by_owner_session', ['ownerId', 'sessionKey'])
+    .index('by_owner_session_move_set', ['ownerId', 'sessionKey', 'moveIndex', 'setIndex']),
   profilePhotos: defineTable({
     ownerId: v.id('users'),
     storageId: v.id('_storage'),
