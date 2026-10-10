@@ -34,6 +34,9 @@ export async function POST(request: Request) {
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Unknown AI Gateway error';
     console.error(`[AI coach] ${detail}`);
-    return Response.json({ error: 'AI Coach is temporarily unavailable. Please try again.' }, { status: 502 });
+    const userMessage = /free tier users do not have access to this model/i.test(detail)
+      ? 'Vercel AI Gateway denied access to this model. Check your monthly Gateway credit balance and account eligibility.'
+      : 'AI Coach is temporarily unavailable. Please try again.';
+    return Response.json({ error: userMessage }, { status: 502 });
   }
 }

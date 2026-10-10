@@ -1,7 +1,5 @@
 export const AI_COACH_MODELS = [
-  { id: 'google/gemini-3.5-flash-lite', label: 'Gemini Flash Lite', detail: 'Fast and economical' },
-  { id: 'openai/gpt-5-mini', label: 'GPT-5 mini', detail: 'Balanced' },
-  { id: 'anthropic/claude-haiku-4.5', label: 'Claude Haiku', detail: 'Detailed responses' },
+  { id: 'openai/gpt-5-mini', label: 'GPT-5 mini', detail: 'Chat model · uses monthly Gateway credits' },
 ] as const;
 
 export type AICoachModelId = (typeof AI_COACH_MODELS)[number]['id'];
