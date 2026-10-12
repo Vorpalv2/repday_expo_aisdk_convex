@@ -1,6 +1,8 @@
 /** Domain shapes shared by the UI and every backend adapter. */
 export type AuthFlow = 'signIn' | 'signUp';
 export type WorkoutTheme = 'light' | 'dark' | 'cyberpunk';
+export type TrainingGoal = 'strength' | 'muscle' | 'fitness' | 'endurance';
+export type WeightUnit = 'kg' | 'lb';
 export type SetEntry = { weight: string; reps: string; done: boolean };
 export type Move = {
   key: string;
@@ -38,8 +40,9 @@ export interface BackendAuth {
   isLoading: boolean;
   isAuthenticated: boolean;
   googleLinked: boolean;
-  signIn: (email: string, password: string, flow: AuthFlow) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signIn: (email: string, password: string, flow: AuthFlow) => Promise<{ isNewUser: boolean }>;
+  signInWithGoogle: () => Promise<{ isNewUser: boolean }>;
+  deleteAccount: (password?: string) => Promise<void>;
   linkGoogleAccount: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -55,6 +58,10 @@ export type WorkoutSettings = {
   timeZone?: string;
   theme?: WorkoutTheme;
   activityDefaultCollapsed?: boolean;
+  trainingGoal?: TrainingGoal;
+  restPreferenceSeconds?: 60 | 90 | 120 | 180;
+  weightUnit?: WeightUnit;
+  remindersEnabled?: boolean;
   legacyActiveWorkout?: ActiveWorkout | null;
   legacyWorking?: Session | null;
   legacyRestEndsAt?: number | null;
@@ -92,6 +99,10 @@ export interface WorkoutBackendBindings {
     timeZone: string;
     theme: WorkoutTheme;
     activityDefaultCollapsed: boolean;
+    trainingGoal: TrainingGoal;
+    restPreferenceSeconds: 60 | 90 | 120 | 180;
+    weightUnit: WeightUnit;
+    remindersEnabled: boolean;
   }) => Promise<unknown>;
   saveActiveWorkout: (args: {
     activeWorkout: ActiveWorkout | null;

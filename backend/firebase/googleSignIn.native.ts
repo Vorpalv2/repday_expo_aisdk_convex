@@ -1,6 +1,7 @@
 import {
   GoogleAuthProvider,
   linkWithCredential,
+  reauthenticateWithCredential,
   signInWithCredential,
   type Auth,
   type User,
@@ -49,4 +50,8 @@ export async function signInWithGoogleProvider(auth: Auth) {
 
 export async function linkGoogleProvider(user: User) {
   return linkWithCredential(user, await getGoogleCredential());
+}
+
+export async function reauthenticateGoogleUser(user: User) {
+  return reauthenticateWithCredential(user, await getGoogleCredential());
 }

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
+  getAdditionalUserInfo,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -9,12 +10,14 @@ import {
 import { StyleSheet, Text, View } from 'react-native';
 import { auth, isFirebaseConfigured } from './firebase/client';
 import { linkGoogleProvider, signInWithGoogleProvider } from './firebase/googleSignIn';
+import { deleteFirebaseAccount } from './firebase/deleteAccount';
 import type { AuthFlow, BackendAuth } from './contracts';
 
 type AuthContextValue = BackendAuth & {
   user: User | null;
   googleLinked: boolean;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: () => Promise<{ isNewUser: boolean }>;
+  deleteAccount: (password?: string) => Promise<void>;
   linkGoogleAccount: () => Promise<void>;
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -42,8 +45,10 @@ function FirebaseAuthBridge({ children }: React.PropsWithChildren) {
     signIn: async (email: string, password: string, flow: AuthFlow) => {
       if (!auth) throw new Error('Firebase is not configured for this build.');
       try {
-        if (flow === 'signUp') await createUserWithEmailAndPassword(auth, email, password);
-        else await signInWithEmailAndPassword(auth, email, password);
+        const credential = flow === 'signUp'
+          ? await createUserWithEmailAndPassword(auth, email, password)
+          : await signInWithEmailAndPassword(auth, email, password);
+        return { isNewUser: flow === 'signUp' || Boolean(getAdditionalUserInfo(credential)?.isNewUser) };
       } catch (error) {
         const code = (error as { code?: string }).code;
         if (code === 'auth/email-already-in-use') throw new Error('An account already exists for this email.');
@@ -57,7 +62,8 @@ function FirebaseAuthBridge({ children }: React.PropsWithChildren) {
     signInWithGoogle: async () => {
       if (!auth) throw new Error('Firebase is not configured for this build.');
       try {
-        await signInWithGoogleProvider(auth);
+        const credential = await signInWithGoogleProvider(auth);
+        return { isNewUser: Boolean(getAdditionalUserInfo(credential)?.isNewUser) };
       } catch (error) {
         const code = (error as { code?: string }).code;
         if (code === 'auth/account-exists-with-different-credential' || code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
@@ -85,6 +91,10 @@ function FirebaseAuthBridge({ children }: React.PropsWithChildren) {
     },
     signOut: async () => {
       if (auth) await firebaseSignOut(auth);
+    },
+    deleteAccount: async (password?: string) => {
+      if (!auth?.currentUser) throw new Error('Sign in before deleting your account.');
+      await deleteFirebaseAccount(auth.currentUser, password);
     },
   }), [user, isLoading]);
 

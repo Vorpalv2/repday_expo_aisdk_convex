@@ -1,6 +1,7 @@
 import {
   GoogleAuthProvider,
   linkWithPopup,
+  reauthenticateWithPopup,
   signInWithPopup,
   type Auth,
   type User,
@@ -12,4 +13,8 @@ export async function signInWithGoogleProvider(auth: Auth) {
 
 export async function linkGoogleProvider(user: User) {
   return linkWithPopup(user, new GoogleAuthProvider());
+}
+
+export async function reauthenticateGoogleUser(user: User) {
+  return reauthenticateWithPopup(user, new GoogleAuthProvider());
 }
