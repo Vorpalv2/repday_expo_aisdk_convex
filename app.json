@@ -32,6 +32,14 @@
       "expo-router",
       "expo-notifications",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Repday uses your camera to show a live exercise form preview.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-widgets",
         {
           "bundleIdentifier": "com.repday.workout.widgets",
