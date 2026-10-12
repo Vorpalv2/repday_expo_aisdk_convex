@@ -40,9 +40,9 @@ export interface BackendAuth {
   isLoading: boolean;
   isAuthenticated: boolean;
   googleLinked: boolean;
-  signIn: (email: string, password: string, flow: AuthFlow) => Promise<{ isNewUser: boolean }>;
-  signInWithGoogle: () => Promise<{ isNewUser: boolean }>;
-  deleteAccount: (password?: string) => Promise<void>;
+  signIn: (email: string, password: string, flow: AuthFlow) => Promise<{ isNewUser: boolean; name?: string }>;
+  signInWithGoogle: () => Promise<{ isNewUser: boolean; name?: string }>;
+  deleteAccount: (password?: string, onProgress?: (stage: string) => void) => Promise<void>;
   linkGoogleAccount: () => Promise<void>;
   signOut: () => Promise<void>;
 }

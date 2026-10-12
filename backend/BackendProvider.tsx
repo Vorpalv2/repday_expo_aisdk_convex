@@ -16,8 +16,8 @@ import type { AuthFlow, BackendAuth } from './contracts';
 type AuthContextValue = BackendAuth & {
   user: User | null;
   googleLinked: boolean;
-  signInWithGoogle: () => Promise<{ isNewUser: boolean }>;
-  deleteAccount: (password?: string) => Promise<void>;
+  signInWithGoogle: () => Promise<{ isNewUser: boolean; name?: string }>;
+  deleteAccount: (password?: string, onProgress?: (stage: string) => void) => Promise<void>;
   linkGoogleAccount: () => Promise<void>;
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -48,7 +48,7 @@ function FirebaseAuthBridge({ children }: React.PropsWithChildren) {
         const credential = flow === 'signUp'
           ? await createUserWithEmailAndPassword(auth, email, password)
           : await signInWithEmailAndPassword(auth, email, password);
-        return { isNewUser: flow === 'signUp' || Boolean(getAdditionalUserInfo(credential)?.isNewUser) };
+        return { isNewUser: flow === 'signUp' || Boolean(getAdditionalUserInfo(credential)?.isNewUser), name: credential.user.displayName || credential.user.email?.split('@')[0]?.replace(/[._-]+/g, ' ') };
       } catch (error) {
         const code = (error as { code?: string }).code;
         if (code === 'auth/email-already-in-use') throw new Error('An account already exists for this email.');
@@ -63,7 +63,7 @@ function FirebaseAuthBridge({ children }: React.PropsWithChildren) {
       if (!auth) throw new Error('Firebase is not configured for this build.');
       try {
         const credential = await signInWithGoogleProvider(auth);
-        return { isNewUser: Boolean(getAdditionalUserInfo(credential)?.isNewUser) };
+        return { isNewUser: Boolean(getAdditionalUserInfo(credential)?.isNewUser), name: credential.user.displayName || credential.user.email?.split('@')[0]?.replace(/[._-]+/g, ' ') };
       } catch (error) {
         const code = (error as { code?: string }).code;
         if (code === 'auth/account-exists-with-different-credential' || code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
@@ -92,9 +92,9 @@ function FirebaseAuthBridge({ children }: React.PropsWithChildren) {
     signOut: async () => {
       if (auth) await firebaseSignOut(auth);
     },
-    deleteAccount: async (password?: string) => {
+    deleteAccount: async (password?: string, onProgress?: (stage: string) => void) => {
       if (!auth?.currentUser) throw new Error('Sign in before deleting your account.');
-      await deleteFirebaseAccount(auth.currentUser, password);
+      await deleteFirebaseAccount(auth.currentUser, password, onProgress);
     },
   }), [user, isLoading]);
 

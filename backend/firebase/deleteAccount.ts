@@ -20,16 +20,21 @@ const USER_COLLECTIONS = ['settings', 'splits', 'history', 'activeWorkouts', 'pr
 async function clearCollection(path: string) {
   if (!db) return;
   const snapshot = await getDocs(collection(db, path));
-  for (let start = 0; start < snapshot.docs.length; start += 400) {
+  const chunks: typeof snapshot.docs[] = [];
+  for (let start = 0; start < snapshot.docs.length; start += 400) chunks.push(snapshot.docs.slice(start, start + 400));
+  for (let start = 0; start < chunks.length; start += 3) {
+    await Promise.all(chunks.slice(start, start + 3).map((items) => {
     const batch = writeBatch(db);
-    snapshot.docs.slice(start, start + 400).forEach((item) => batch.delete(item.ref));
-    await batch.commit();
+      items.forEach((item) => batch.delete(item.ref));
+      return batch.commit();
+    }));
   }
 }
 
-async function clearUserData(uid: string) {
+async function clearUserData(uid: string, onProgress?: (stage: string) => void) {
   if (!db) throw new Error('Firebase is not configured for this build.');
   if (storage) {
+    onProgress?.('Removing your profile photo…');
     try {
       await deleteObject(ref(storage, `users/${uid}/profile/profile-image`));
     } catch (error) {
@@ -37,15 +42,16 @@ async function clearUserData(uid: string) {
     }
   }
   // Active workout set logs are the only nested collection in the current data model.
+  onProgress?.('Removing workout set details…');
   const activeWorkouts = await getDocs(collection(db, 'users', uid, 'activeWorkouts'));
-  for (const workout of activeWorkouts.docs) {
-    await clearCollection(`users/${uid}/activeWorkouts/${workout.id}/sets`);
-  }
-  for (const name of USER_COLLECTIONS) await clearCollection(`users/${uid}/${name}`);
+  await Promise.all(activeWorkouts.docs.map((workout) => clearCollection(`users/${uid}/activeWorkouts/${workout.id}/sets`)));
+  onProgress?.('Removing workouts and preferences…');
+  await Promise.all(USER_COLLECTIONS.map((name) => clearCollection(`users/${uid}/${name}`)));
+  onProgress?.('Finishing account deletion…');
   await deleteDoc(doc(db, 'users', uid));
 }
 
-export async function deleteFirebaseAccount(user: User, password?: string) {
+export async function deleteFirebaseAccount(user: User, password?: string, onProgress?: (stage: string) => void) {
   if (!auth || !db) throw new Error('Firebase is not configured for this build.');
   const providers = user.providerData.map((item) => item.providerId);
   try {
@@ -67,6 +73,7 @@ export async function deleteFirebaseAccount(user: User, password?: string) {
   }
 
   // Reauthenticate before removing anything so a stale session cannot partially erase data.
-  await clearUserData(user.uid);
+  onProgress?.('Deleting your Repday data…');
+  await clearUserData(user.uid, onProgress);
   await deleteUser(user);
 }

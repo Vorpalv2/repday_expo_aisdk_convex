@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Dimensions, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image as ExpoImage } from 'expo-image';
+import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBackendAuth } from '../backend/BackendProvider';
 
@@ -87,8 +88,8 @@ function LoadingMascot({ width }: { width: number }) {
 type SignInScreenProps = {
   mode?: 'auth' | 'onboarding';
   onAuthAttempt?: () => void;
-  onExistingUser?: () => void;
-  onNewUser?: () => void;
+  onExistingUser?: (name?: string) => void;
+  onNewUser?: (name?: string) => void;
   onOnboardingComplete?: () => void;
 };
 
@@ -98,7 +99,7 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [step, setStep] = useState(0);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
-  const [flow, setFlow] = useState<'signIn' | 'signUp'>('signUp');
+  const [flow, setFlow] = useState<'signIn' | 'signUp'>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -186,8 +187,8 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
         setPreferences(INITIAL_PREFERENCES);
         setStep(0);
         setOnboardingComplete(false);
-        onNewUser?.();
-      } else onExistingUser?.();
+        onNewUser?.(result.name);
+      } else onExistingUser?.(result.name);
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message.toLowerCase() : '';
       if (flow === 'signUp' && /(already exists|already registered|account.*exists|email.*taken)/.test(detail)) setError('An account already exists for this email. Sign in instead.');
@@ -212,8 +213,8 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
         setPreferences(INITIAL_PREFERENCES);
         setStep(0);
         setOnboardingComplete(false);
-        onNewUser?.();
-      } else onExistingUser?.();
+        onNewUser?.(result.name);
+      } else onExistingUser?.(result.name);
     }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Couldn’t sign in with Google. Try again.'); }
     finally { setGoogleBusy(false); }
@@ -285,27 +286,21 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
               </Pressable>
             </View>
           </> : <>
-            <View style={styles.authTopBar}>
-              <View style={{ width: 42 }} />
-              <Text style={[styles.authKicker, { color: palette.blue }]}>YOUR TRAINING, IN SYNC</Text>
-              <View style={{ width: 42 }} />
-            </View>
             <ScrollView contentContainerStyle={styles.authScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              <LoadingMascot width={Math.min(210, pageWidth * 0.52)} />
-              <Text style={[styles.authTitle, { color: palette.ink }]}>{flow === 'signIn' ? 'Welcome back.' : 'Start your next chapter.'}</Text>
-              <Text style={[styles.authSubtitle, { color: palette.muted }]}>{flow === 'signIn' ? 'Your workouts and weekly plan are ready.' : 'Create an account to keep your training in sync.'}</Text>
+              <LoadingMascot width={Math.min(158, pageWidth * 0.39)} />
+              <Text style={[styles.authTitle, { color: palette.ink }]}>The Next Chapter</Text>
               <View style={styles.form}>
                 <Text style={[styles.label, { color: palette.muted }]}>EMAIL</Text>
                 <TextInput value={email} onChangeText={setEmail} style={[styles.input, { color: palette.ink, backgroundColor: palette.surface, borderColor: palette.border }]} placeholder="you@example.com" placeholderTextColor={palette.muted} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress" returnKeyType="next" />
                 <Text style={[styles.label, { color: palette.muted }]}>PASSWORD</Text>
                 <TextInput value={password} onChangeText={setPassword} style={[styles.input, { color: palette.ink, backgroundColor: palette.surface, borderColor: palette.border }]} placeholder="At least 8 characters" placeholderTextColor={palette.muted} secureTextEntry textContentType={flow === 'signIn' ? 'password' : 'newPassword'} onSubmitEditing={submit} returnKeyType="done" />
                 {!!error && <Text style={styles.error}>{error}</Text>}
-                <Pressable style={[styles.primary, { backgroundColor: palette.ink }, (busy || !email.trim() || !password) && styles.disabled]} onPress={submit} disabled={busy || !email.trim() || !password}>
+                <Pressable style={[styles.primary, styles.authPrimary, { backgroundColor: palette.ink }, (busy || !email.trim() || !password) && styles.disabled]} onPress={submit} disabled={busy || !email.trim() || !password}>
                   {busy ? <ActivityIndicator color={palette.bg} /> : <><Text style={[styles.primaryText, { color: palette.bg }]}>{flow === 'signIn' ? 'Sign in' : 'Create account'}</Text><Text style={{ color: palette.bg, fontSize: 21 }}>›</Text></>}
                 </Pressable>
                 <View style={styles.divider}><View style={[styles.dividerLine, { backgroundColor: palette.border }]} /><Text style={[styles.dividerLabel, { color: palette.muted }]}>OR</Text><View style={[styles.dividerLine, { backgroundColor: palette.border }]} /></View>
-                <Pressable accessibilityRole="button" style={[styles.googleButton, { borderColor: palette.border, backgroundColor: palette.surface }, googleBusy && styles.disabled]} onPress={continueWithGoogle} disabled={busy || googleBusy}>
-                  {googleBusy ? <ActivityIndicator color={palette.ink} /> : <><View style={styles.googleMark}><Text style={styles.googleMarkText}>G</Text></View><Text style={[styles.googleButtonText, { color: palette.ink }]}>Continue with Google</Text></>}
+                <Pressable accessibilityRole="button" style={[styles.googleButton, { borderColor: palette.blue, backgroundColor: palette.blue }, googleBusy && styles.disabled]} onPress={continueWithGoogle} disabled={busy || googleBusy}>
+                  {googleBusy ? <ActivityIndicator color="#fff" /> : <><Svg width={22} height={22} viewBox="0 0 48 48"><Path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z"/><Path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.87c-.58 2.96-2.26 5.48-4.76 7.18l7.73 6C44.35 37.97 46.98 31.93 46.98 24.55Z"/><Path fill="#FBBC05" d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19Z"/><Path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.9-5.8l-7.73-6c-2.14 1.44-4.88 2.3-8.17 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.97 6.19C6.51 42.62 14.62 48 24 48Z"/></Svg><Text style={[styles.googleButtonText, { color: '#fff' }]}>Continue with Google</Text></>}
                 </Pressable>
               </View>
               <Pressable style={styles.switch} onPress={() => { setError(''); setFlow(flow === 'signIn' ? 'signUp' : 'signIn'); }}>
@@ -323,7 +318,7 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  shell: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: 22, paddingTop: 5 },
+  shell: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: 22, paddingTop: 0 },
   topBar: { height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backButton: { width: 42, height: 42, borderWidth: 1, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   stepCount: { fontSize: 13, fontWeight: '800', letterSpacing: 1 },
@@ -352,27 +347,24 @@ const styles = StyleSheet.create({
   timeZoneChange: { fontSize: 14, fontWeight: '800' },
   footer: { paddingTop: 9, paddingBottom: 8 },
   primary: { minHeight: 56, borderRadius: 29, paddingHorizontal: 19, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  authPrimary: { minHeight: 51, borderRadius: 27, marginTop: 14 },
   primaryText: { fontSize: 17, fontWeight: '800' },
   signInInstead: { alignItems: 'center', paddingVertical: 12 },
   signInInsteadText: { fontSize: 13 },
-  authTopBar: { height: 43, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  authKicker: { fontSize: 10, fontWeight: '900', letterSpacing: 1.8 },
-  authScroll: { flexGrow: 1, justifyContent: 'center', paddingTop: 2, paddingBottom: 17 },
-  authTitle: { textAlign: 'center', fontSize: 30, lineHeight: 36, fontWeight: '900', marginTop: -5 },
-  authSubtitle: { textAlign: 'center', fontSize: 14, lineHeight: 20, marginTop: 4, marginBottom: 11 },
+  authScroll: { flexGrow: 1, justifyContent: 'center', paddingTop: 0, paddingBottom: 5 },
+  authTitle: { textAlign: 'center', fontSize: 27, lineHeight: 32, fontWeight: '900', marginTop: 0 },
+  authSubtitle: { textAlign: 'center', fontSize: 14, lineHeight: 19, marginTop: 2, marginBottom: 6 },
   form: { width: '100%' },
-  label: { fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginTop: 10, marginBottom: 6 },
-  input: { height: 51, borderRadius: 15, borderWidth: 1, paddingHorizontal: 14, fontSize: 16 },
+  label: { fontSize: 12, lineHeight: 16, fontFamily: Platform.OS === 'android' ? 'sans-serif-condensed' : 'Impact', fontWeight: '900', letterSpacing: 1.2, marginTop: 4, marginBottom: 3 },
+  input: { height: 47, borderRadius: 15, borderWidth: 1, paddingHorizontal: 14, fontSize: 16 },
   disabled: { opacity: 0.45 },
-  divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 13 },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 5 },
   dividerLine: { height: 1, flex: 1 },
   dividerLabel: { fontSize: 11, fontWeight: '700' },
-  googleButton: { minHeight: 51, borderRadius: 26, borderWidth: 1, marginTop: 13, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
+  googleButton: { minHeight: 47, borderRadius: 24, borderWidth: 1, marginTop: 5, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
   googleButtonText: { fontSize: 15, fontWeight: '700' },
-  googleMark: { width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: '#e9edf1', alignItems: 'center', justifyContent: 'center' },
-  googleMarkText: { color: '#4285f4', fontSize: 15, fontWeight: '800' },
   error: { color: '#c33d3d', fontSize: 13, lineHeight: 19, marginTop: 9 },
-  switch: { alignSelf: 'center', paddingVertical: 11, paddingHorizontal: 8, marginTop: 2 },
+  switch: { alignSelf: 'center', paddingVertical: 4, paddingHorizontal: 8, marginTop: 2 },
   switchText: { fontSize: 14 },
   privacy: { textAlign: 'center', fontSize: 11, lineHeight: 16 },
 });
