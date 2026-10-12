@@ -81,7 +81,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
       moves: working.moves.map((move: any, moveIndex: number) => ({
         ...move,
         sets: (byMove.get(moveIndex) ?? []).sort((a, b) => a.setIndex - b.setIndex)
-          .map(({ weight, reps, done }) => ({ weight, reps, done })),
+          .map(({ weight, reps, done, addedDuringWorkout }) => ({ weight, reps, done, addedDuringWorkout: Boolean(addedDuringWorkout) })),
       })),
     };
   };
@@ -119,7 +119,37 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
         } as WorkoutSettings);
       }),
       onSnapshot(query(splitsRef, orderBy('position', 'asc')), (snapshot) => {
-        setRemoteSplits({ userId: uid, sessions: snapshot.docs.map((item) => item.data().data) });
+        const sessions = snapshot.docs.map((item) => {
+          const split = item.data();
+          const session = split.data;
+          const targets = split.setTargets ?? {};
+          if (!session?.moves || !Object.keys(targets).length) return session;
+          return {
+            ...session,
+            moves: session.moves.map((move: any) => {
+              const moveTargets = Object.entries(targets)
+                .map(([key, value]: [string, any]) => ({ key, value }))
+                .filter(({ value }) => value?.moveKey === move.key)
+                .sort((a, b) => a.value.setIndex - b.value.setIndex);
+              if (!moveTargets.length) return move;
+              const sets = move.sets.map((set: any) => ({ ...set }));
+              for (const { value } of moveTargets) {
+                while (sets.length <= value.setIndex) {
+                  const previous = sets.at(-1);
+                  sets.push({ weight: previous?.weight ?? '0', reps: previous?.reps ?? '10', done: false });
+                }
+                sets[value.setIndex] = {
+                  ...sets[value.setIndex],
+                  weight: String(value.weight ?? sets[value.setIndex].weight),
+                  reps: String(value.reps ?? sets[value.setIndex].reps),
+                  done: false,
+                };
+              }
+              return { ...move, sets };
+            }),
+          };
+        });
+        setRemoteSplits({ userId: uid, sessions });
       }),
       onSnapshot(query(historyRef, orderBy('startedAt', 'desc'), limit(30)), (snapshot) => {
         historyCursor.current = snapshot.docs.at(-1) ?? null;
@@ -252,7 +282,20 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
 
   const upsertSplit = useCallback(({ item, position }: { item: any; position: number }) => {
     if (!uid || !db) return Promise.reject(new Error('Sign in to save workout splits.'));
-    return setDoc(doc(db, 'users', uid, 'splits', splitDocumentId(String(item.id))), { clientId: String(item.id), data: item, position, updatedAt: Date.now() }, { merge: true });
+    return setDoc(doc(db, 'users', uid, 'splits', splitDocumentId(String(item.id))), { clientId: String(item.id), data: item, position, setTargets: {}, updatedAt: Date.now() });
+  }, [uid]);
+
+  const updateSplitSetTargets = useCallback(({ splitId, targets }: {
+    splitId: string; targets: { moveKey: string; setIndex: number; weight: string; reps: string }[];
+  }) => {
+    if (!uid || !db) return Promise.reject(new Error('Sign in to update workout targets.'));
+    if (targets.length === 0) return Promise.resolve();
+    const targetRef = doc(db, 'users', uid, 'splits', splitDocumentId(splitId));
+    const setTargets = Object.fromEntries(targets.map((target) => [
+      `${encodeURIComponent(target.moveKey)}_set_${target.setIndex}`,
+      { moveKey: target.moveKey, setIndex: target.setIndex, weight: target.weight, reps: target.reps },
+    ]));
+    return setDoc(targetRef, { setTargets }, { merge: true });
   }, [uid]);
 
   const deleteSplit = useCallback(({ clientId }: { clientId: string }) => {
@@ -305,7 +348,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     if (!current.exists()) {
       working.moves.forEach((move: any, moveIndex: number) => move.sets.forEach((set: any, setIndex: number) => {
         batch.set(doc(setsRef, setDocumentId(moveIndex, setIndex)), {
-          moveIndex, setIndex, weight: String(set.weight ?? '0'), reps: String(set.reps ?? '10'), done: Boolean(set.done),
+          moveIndex, setIndex, weight: String(set.weight ?? '0'), reps: String(set.reps ?? '10'), done: Boolean(set.done), addedDuringWorkout: Boolean(set.addedDuringWorkout),
         });
       }));
     } else {
@@ -314,7 +357,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
       working.moves.forEach((move: any, moveIndex: number) => move.sets.forEach((set: any, setIndex: number) => {
         const id = setDocumentId(moveIndex, setIndex);
         if (!existingIds.has(id)) batch.set(doc(setsRef, id), {
-          moveIndex, setIndex, weight: String(set.weight ?? '0'), reps: String(set.reps ?? '10'), done: Boolean(set.done),
+          moveIndex, setIndex, weight: String(set.weight ?? '0'), reps: String(set.reps ?? '10'), done: Boolean(set.done), addedDuringWorkout: Boolean(set.addedDuringWorkout),
         });
       }));
     }
@@ -336,8 +379,16 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     sessionKey: string; moveIndex: number; setIndex: number; weight: string; reps: string;
   }) => {
     if (!uid || !db) return Promise.reject(new Error('Sign in to add workout sets.'));
-    return setDoc(doc(db, 'users', uid, 'activeWorkouts', 'current', 'sets', setDocumentId(moveIndex, setIndex)), { moveIndex, setIndex, weight, reps, done: false });
+    return setDoc(doc(db, 'users', uid, 'activeWorkouts', 'current', 'sets', setDocumentId(moveIndex, setIndex)), { moveIndex, setIndex, weight, reps, done: false, addedDuringWorkout: true });
   }, [uid]);
+
+  const deleteActiveWorkoutSet = useCallback(({ sessionKey: _sessionKey, moveIndex, setIndex }: {
+    sessionKey: string; moveIndex: number; setIndex: number;
+  }) => {
+    if (!uid || !db) return Promise.reject(new Error('Sign in to remove workout sets.'));
+    if (remoteActiveWorkout?.sessionKey && _sessionKey !== remoteActiveWorkout.sessionKey) return Promise.reject(new Error('This workout is no longer active.'));
+    return deleteDoc(doc(db, 'users', uid, 'activeWorkouts', 'current', 'sets', setDocumentId(moveIndex, setIndex)));
+  }, [uid, remoteActiveWorkout?.sessionKey]);
 
   const migrateLegacyActiveWorkout = useCallback(async () => undefined, []);
 
@@ -363,12 +414,14 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     upsertHistoryItem,
     deleteHistoryItem,
     upsertSplit,
+    updateSplitSetTargets,
     deleteSplit,
     reorderSplitPositions,
     saveSettings,
     saveActiveWorkout,
     updateActiveWorkoutSet,
     addActiveWorkoutSet,
+    deleteActiveWorkoutSet,
     migrateLegacyActiveWorkout,
     uploadProfilePhoto,
   };

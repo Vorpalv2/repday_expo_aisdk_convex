@@ -3,7 +3,7 @@ export type AuthFlow = 'signIn' | 'signUp';
 export type WorkoutTheme = 'light' | 'dark' | 'cyberpunk';
 export type TrainingGoal = 'strength' | 'muscle' | 'fitness' | 'endurance';
 export type WeightUnit = 'kg' | 'lb';
-export type SetEntry = { weight: string; reps: string; done: boolean };
+export type SetEntry = { weight: string; reps: string; done: boolean; addedDuringWorkout?: boolean };
 export type Move = {
   key: string;
   name: string;
@@ -89,6 +89,7 @@ export interface WorkoutBackendBindings {
   upsertHistoryItem: (args: { item: WorkoutRecord }) => Promise<unknown>;
   deleteHistoryItem: (args: { clientId: string }) => Promise<unknown>;
   upsertSplit: (args: { item: Session; position: number }) => Promise<unknown>;
+  updateSplitSetTargets: (args: { splitId: string; targets: { moveKey: string; setIndex: number; weight: string; reps: string }[] }) => Promise<unknown>;
   deleteSplit: (args: { clientId: string }) => Promise<unknown>;
   reorderSplitPositions: (args: { clientIds: string[] }) => Promise<unknown>;
   saveSettings: (args: {
@@ -123,6 +124,7 @@ export interface WorkoutBackendBindings {
     weight: string;
     reps: string;
   }) => Promise<unknown>;
+  deleteActiveWorkoutSet: (args: { sessionKey: string; moveIndex: number; setIndex: number }) => Promise<unknown>;
   migrateLegacyActiveWorkout: (args: Record<string, never>) => Promise<unknown>;
   uploadProfilePhoto: (blob: Blob, contentType: string) => Promise<void>;
 }
