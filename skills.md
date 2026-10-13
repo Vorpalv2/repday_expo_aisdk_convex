@@ -63,13 +63,13 @@ Always resolve colors through a theme palette/helper. Avoid hardcoding a light-o
 - Existing reference assets include `assets/header-illustrations.png` and `assets/repday-loading-sprite.png`; exercise imagery is catalog-driven via `data/exercises.ts` and catalog media. Preserve aspect ratio; contain illustrations in a purposeful visual area; do not stretch or crop anatomy/food illustrations.
 - Keep decorative/header art smaller than the title and aligned to its far edge. In activity or workout cards, use a larger centered art stage with room around the subject; place the title and subtitle near the top, interaction controls around the image only when needed, and compact factual metadata near the lower edge.
 - Icons should be a coherent set (current app uses an internal icon component). Match stroke/fill, visual weight, size, and alignment. Use explicit icons for add, close, delete, camera, navigation, play/pause, reset, and skip; do not substitute emoji or text glyphs when a proper icon is available.
-- For camera/form inspection, keep camera preview full-bleed within a dark stage, with a dark translucent top bar, large condensed exercise title, compact translucent metric tiles, and bottom actions. Ask for camera permission only after the user intentionally opens this feature. Make the permission screen useful without permission, and clearly explain whether video is recorded or saved. Do not imply AI pose analysis works if it is not implemented.
+- For camera/form inspection, keep camera preview full-bleed within a dark stage, with a dark translucent top bar, large condensed exercise title, compact translucent metric tiles, and floating controls that remain easy to reach without covering the movement. Ask for camera permission only after the user intentionally opens this feature. Make the permission screen useful without permission. Live pose detection runs on the device; do not record or upload camera video. Explain data flows accurately and do not imply every exercise has rep or range-of-motion analysis: available movement guidance varies by exercise.
 
 ## 4. App shell and navigation
 
 - Build a mobile-first app shell with a clear page title at the top, one primary scrollable content region, and a persistent bottom tab bar. Respect safe areas and small browser/device heights; primary content must not sit behind fixed bars or require a tiny-screen user to scroll just to reach a critical decision.
-- Repday's main navigation is Home, Progress, Profile, Search, and a separate AI Coach entry. The app supports swiping left/right over the tab bar to move between adjacent tabs. Keep swipe gestures confined to the tab bar so page scrolling and horizontal carousels retain their own gestures.
-- The bottom tab bar is a floating rounded capsule with icon above label. Active tab uses blue emphasis, inactive tabs use ink/muted contrast. A separate prominent round theme control may sit beside it. Reserve bottom safe-area padding and content inset so the bar never covers the final row.
+- Repday's main navigation is Home, Progress, Profile, and Search in a floating tab bar, plus a separate prominent circular AI Coach button beside the bar. The Coach button is a top-level navigation action: give it a recognizable coach icon, an accessible name and selected state, and route it to the dedicated AI Coach screen. The app supports swiping left/right over the tab bar to move between adjacent tabs; the separate Coach button is activated by its own tap. Keep swipe gestures confined to the tab bar so page scrolling and horizontal carousels retain their own gestures.
+- The bottom tab bar is a floating rounded capsule with icon above label. Active tab uses blue emphasis, inactive tabs use ink/muted contrast. Keep the adjacent AI Coach button visually distinct and large enough to tap, while preserving clear selected feedback when the Coach screen is open. Reserve bottom safe-area padding and content inset so the bar never covers the final row.
 - Animate tab changes with a short directional slide/fade or subtle horizontal shift. Keep duration around 180–260 ms, honor reduced-motion settings, and avoid moving surrounding page layout. Avoid remounting the entire application state on tab change.
 - Use stable, meaningful tab names and accessible labels. The domain-specific tab set may change, but keep the bar geometry and active/inactive visual treatment consistent.
 
@@ -112,10 +112,20 @@ Use a clear account identity area followed by grouped preference rows. Each row 
 - Search uses a large rounded search field, filter chips (e.g. category, target, equipment), a visible selected-filter state, clear-all action, result count, and compact result rows with a small art thumbnail, title, metadata, preview, and add action.
 - Filter chips are neutral while inactive; selected filters receive pale blue fill and primary blue text. A search input should not appear focused/bordered unless it actually has focus. Use a deliberate focus ring only during keyboard focus.
 - AI Coach uses the same title/body/button system. Make the conversational flow feel direct and calm; distinguish user and assistant turns clearly, provide loading/error/retry states, and show contextual suggestions only when relevant. Be explicit about whether AI output is advisory and whether data is sent to a server/model.
+- The AI Coach navigation button opens a dedicated conversational screen where users can ask about training. Keep the prompt, send action, conversation, loading state, error message, and retry action usable on narrow screens and with the keyboard open. The Coach can use a concise recent workout/split context when available; communicate when it is replying about a selected completed workout. Responses are guidance, not a substitute for professional medical advice. Send only the required workout context to the configured AI service and describe that server data flow honestly.
 
 ### Active workflow / detail surface
 
 Translate workout set rows into the domain's repeated data-entry units (meal entries, food inventory rows, etc.). Use aligned utility headers, soft capsule inputs, clear row numbering/status, and one visually obvious completion affordance. Keep changes local first when the user expects a multi-step workflow, then commit them on the explicit finish/save action. Define discard behavior and restore behavior before implementing persistence.
+
+### Active-session Pose Coach
+
+- Offer the Form Coach entry beside each exercise name only inside an active workout session, so the current exercise and its set/rep targets provide context for the analysis.
+- Request camera permission after the user taps the exercise's Form Coach action. On the web, use a browser camera stream and on-device MediaPipe Pose Landmarker inference. Keep live camera frames local and do not record or upload them.
+- Before starting analysis, show 5, 10, and 15 second setup countdown choices. Tapping a choice hides the choices and begins the countdown; after it finishes, show the live pose overlay and current exercise, reps, elapsed time, set, and relevant joint angle.
+- Provide accessible pause/resume, stop-analysis, and end-coach icon buttons. Pause stops inference and resume resets the movement phase so the next repetition starts cleanly. Respect an active set rest timer: pause rep analysis during rest and resume after rest expires unless the user has paused or all planned sets are complete.
+- Count a rep only after the movement reaches its recognized start and end zones. Give clear visual feedback for a full-range counted rep and for an incomplete attempt; use pace guidance only when enough timing data exists. On target, mark the set complete and advance the active session. At the end, show a summary of full-range reps, incomplete attempts, and any pace observations.
+- Movement rules are exercise-specific. Do not claim reliable equipment, load, muscle activation, or universal form assessment from a 2D skeleton. If an exercise has pose visibility but no implemented movement rule, say rep guidance is unavailable rather than counting arbitrary motion.
 
 ## 6. Reusable component patterns
 
@@ -265,7 +275,8 @@ Use these files in the Repday repository to inspect exact behavior and refine me
 
 - `app/index.tsx` — theme palettes, app shell, tab bar, cards, workout/session surfaces, timers, drawers, modals, and interaction state.
 - `components/SignInScreen.tsx` — sign-in and seven-step onboarding UI.
-- `components/FormCoachCameraScreen.tsx` — camera/form-inspection layout and permission states.
+- `components/FormCoachCameraScreen.tsx` — native camera/form-inspection layout and permission states.
+- `components/FormCoachCameraScreen.web.tsx` — browser camera preview, on-device MediaPipe pose inference, repetition feedback, and Form Coach controls.
 - `assets/header-illustrations.png`, `assets/repday-loading-sprite.png` — brand art.
 - `data/exercises.ts` — exercise catalog and art metadata.
 - `backend/contracts.ts` — app-facing auth/data types and domain contracts.
