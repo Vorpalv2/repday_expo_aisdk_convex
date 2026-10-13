@@ -33,6 +33,9 @@ function loadVisionApi(): Promise<VisionApi> {
   }).catch(error => { visionLoadPromise = null; throw error; });
   return visionLoadPromise!;
 }
+function isMobileBrowser() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+}
 type MovementKind = 'elbow' | 'knee' | 'latPulldown' | 'row' | 'unsupported';
 const MEDIAPIPE_VERSION = '1.1.0';
 const POSE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
@@ -192,7 +195,37 @@ export function FormCoachCameraScreen({ exercise, weightUnit, elapsedSeconds, re
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const landmarker = landmarkerRef.current;
-    if (!video || !canvas || !landmarker || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+    if (!video || !canvas || !landmarker) {
+      if (requestedRef.current) {
+        setAnalysisState('error');
+        setCameraError('Pose analysis could not connect to the camera or model. Choose a setup timer to retry.');
+      }
+      return;
+    }
+    if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+      const waitStartedAt = performance.now();
+      const waitForVideoFrame = () => {
+        const currentVideo = videoRef.current;
+        if (endingRef.current || !requestedRef.current || restActiveRef.current || userPausedRef.current) {
+          rafRef.current = null;
+          return;
+        }
+        if (currentVideo?.readyState && currentVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+          rafRef.current = null;
+          startTracking();
+          return;
+        }
+        if (performance.now() - waitStartedAt > 10000) {
+          rafRef.current = null;
+          setAnalysisState('error');
+          setCameraError('The camera opened but did not provide a video frame. Keep this page open and check browser camera access.');
+          return;
+        }
+        rafRef.current = requestAnimationFrame(waitForVideoFrame);
+      };
+      rafRef.current = requestAnimationFrame(waitForVideoFrame);
+      return;
+    }
     stopTracking();
     setAnalysisState('tracking');
     lastFrameTimeRef.current = -1;
@@ -323,6 +356,12 @@ export function FormCoachCameraScreen({ exercise, weightUnit, elapsedSeconds, re
           }
         } catch (error) {
           console.warn('Pose frame could not be analyzed', error);
+          requestedRef.current = false;
+          stopTracking();
+          setCountdown(null);
+          setAnalysisState('error');
+          setCameraError(error instanceof Error ? `Pose analysis stopped: ${error.message}` : 'Pose analysis stopped unexpectedly. Choose a setup timer to retry.');
+          return;
         }
       }
       rafRef.current = endingRef.current ? null : requestAnimationFrame(tick);
@@ -346,13 +385,14 @@ export function FormCoachCameraScreen({ exercise, weightUnit, elapsedSeconds, re
         minPoseDetectionConfidence: 0.55,
         minPosePresenceConfidence: 0.5,
         minTrackingConfidence: 0.5,
-        baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate: 'GPU' as const },
+        baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate: (isMobileBrowser() ? 'CPU' : 'GPU') as 'CPU' | 'GPU' },
       };
       let landmarker: PoseLandmarkerInstance;
       try {
         landmarker = await visionApi.PoseLandmarker.createFromOptions(vision, options);
       } catch {
-        landmarker = await visionApi.PoseLandmarker.createFromOptions(vision, { ...options, baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate: 'CPU' } });
+        const alternateDelegate = isMobileBrowser() ? 'GPU' : 'CPU';
+        landmarker = await visionApi.PoseLandmarker.createFromOptions(vision, { ...options, baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate: alternateDelegate } });
       }
       landmarkerRef.current = landmarker;
       if (requestedRef.current && countdownRef.current === null) startTracking();
@@ -371,6 +411,7 @@ export function FormCoachCameraScreen({ exercise, weightUnit, elapsedSeconds, re
     if (countdown === null) return;
     if (countdown === 0) {
       countdownRef.current = null;
+      setCountdown(null);
       if (landmarkerRef.current) startTracking();
       else setFeedback('Loading the pose model…');
       return;
