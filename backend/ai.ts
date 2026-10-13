@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { DEFAULT_AI_COACH_MODEL, type AICoachModelId } from './aiModels';
+import { auth } from './firebase/client';
 
 export { AI_COACH_MODELS, type AICoachModelId } from './aiModels';
 
@@ -14,9 +15,12 @@ function getApiBaseUrl() {
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
+  const user = auth?.currentUser;
+  if (!user) throw new Error('Sign in to use AI features.');
+  const idToken = await user.getIdToken();
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
     body: JSON.stringify(body),
   });
   const raw = await response.text();

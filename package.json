@@ -19,6 +19,8 @@
     "@expo/ui": "^57.0.22",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-google-signin/google-signin": "^16.1.5",
+    "@upstash/ratelimit": "^2.2.0",
+    "@upstash/redis": "^1.39.0",
     "ai": "^7.0.137",
     "expo": "~57.0.17",
     "expo-camera": "~57.0.6",

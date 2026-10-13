@@ -11,3 +11,10 @@ Profile photo uploads use Cloud Storage, but a Storage bucket has not been provi
 AI Coach and workout-note parsing use the Vercel AI SDK through the app API routes in `app/api/`. The provider key stays server-side as `AI_GATEWAY_API_KEY`. Firebase remains responsible for authentication and workout data on this branch; it does not receive AI requests.
 
 AI Coach model choices are validated server-side and sent through Vercel AI Gateway. Native app builds call the deployed API origin configured by `EXPO_PUBLIC_API_URL`; web uses same-origin API routes.
+
+Both AI endpoints require a Firebase ID token and enforce per-account limits with Upstash Redis before calling AI Gateway. The server validates tokens through Firebase Auth's `accounts:lookup` REST endpoint and uses the returned UID as the rate-limit key. It reuses the existing Firebase web API key and does not require a Firebase Admin service-account key.
+
+- Coach: 10 requests per rolling minute.
+- Workout-note import: 5 requests per rolling hour.
+
+Configure `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` as server-side environment variables in local development and the API hosting environment. `EXPO_PUBLIC_FIREBASE_API_KEY` is already part of the app's Firebase configuration. The limiter fails closed with HTTP 503 if Redis is unavailable or not configured, and returns HTTP 429 with `Retry-After` when a user reaches a limit.

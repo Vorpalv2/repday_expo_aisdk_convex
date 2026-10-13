@@ -1,5 +1,6 @@
 import { generateText } from 'ai';
 import { z } from 'zod';
+import { checkAIRequestLimit } from './_lib/aiRateLimit';
 
 const workoutSchema = z.object({
   splits: z.array(z.object({
@@ -31,6 +32,9 @@ export async function POST(request: Request) {
   if (note.length > 15_000) {
     return Response.json({ error: 'This note is too long. Please keep it under 15,000 characters.' }, { status: 413 });
   }
+
+  const rateLimitResponse = await checkAIRequestLimit(request, 'workout-import');
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
     const { text } = await generateText({
