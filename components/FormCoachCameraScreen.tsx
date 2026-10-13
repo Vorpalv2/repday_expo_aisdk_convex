@@ -9,9 +9,11 @@ type Props = {
   exercise: Move;
   weightUnit: WeightUnit;
   elapsedSeconds: number;
+  restSeconds?: number;
   permission: PermissionResponse | null;
   onRequestPermission: () => Promise<PermissionResponse>;
   onClose: () => void;
+  onTargetReached?: () => boolean;
 };
 
 export function FormCoachCameraScreen({ exercise, weightUnit, elapsedSeconds, permission, onRequestPermission, onClose }: Props) {
