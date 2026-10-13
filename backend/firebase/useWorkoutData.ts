@@ -3,6 +3,7 @@ import {
   collection,
   arrayUnion,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -341,9 +342,15 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     const setsRef = collection(parentRef, 'sets');
     if (!activeWorkout || !working) {
       const existingSets = await getDocs(setsRef);
+      const settingsRef = doc(db, 'users', uid, 'settings', 'main');
       const batch = writeBatch(db);
       existingSets.docs.forEach((set) => batch.delete(set.ref));
       batch.delete(parentRef);
+      batch.set(settingsRef, {
+        legacyActiveWorkout: deleteField(),
+        legacyWorking: deleteField(),
+        legacyRestEndsAt: deleteField(),
+      }, { merge: true });
       await batch.commit();
       activeParentPayload.current = null;
       return;
