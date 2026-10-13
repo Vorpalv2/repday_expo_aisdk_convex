@@ -15,6 +15,10 @@ export type Move = {
   equipment?: string;
   instructions?: Record<string, string>;
   instruction_steps?: Record<string, string[]>;
+  /** Kept on-device during an active workout; excluded from its cloud autosave. */
+  activeSessionOnly?: boolean;
+  /** Append this session-only exercise to the saved split when the workout finishes. */
+  addToSplitOnFinish?: boolean;
 };
 export type Session = {
   id: string;
@@ -89,6 +93,7 @@ export interface WorkoutBackendBindings {
   upsertHistoryItem: (args: { item: WorkoutRecord }) => Promise<unknown>;
   deleteHistoryItem: (args: { clientId: string }) => Promise<unknown>;
   upsertSplit: (args: { item: Session; position: number }) => Promise<unknown>;
+  appendSplitExercise: (args: { splitId: string; move: Move }) => Promise<unknown>;
   updateSplitSetTargets: (args: { splitId: string; targets: { moveKey: string; setIndex: number; weight: string; reps: string }[] }) => Promise<unknown>;
   deleteSplit: (args: { clientId: string }) => Promise<unknown>;
   reorderSplitPositions: (args: { clientIds: string[] }) => Promise<unknown>;

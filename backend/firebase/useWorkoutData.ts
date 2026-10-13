@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   collection,
+  arrayUnion,
   deleteDoc,
   doc,
   getDoc,
@@ -10,6 +11,7 @@ import {
   orderBy,
   query,
   setDoc,
+  updateDoc,
   startAfter,
   writeBatch,
   type DocumentData,
@@ -45,7 +47,7 @@ const makeInitialSettings = (uid: string): WorkoutSettings => ({
 
 const stripWorkingSets = (working: any) => ({
   ...working,
-  moves: working.moves.map((move: any) => ({ ...move, sets: [] })),
+  moves: working.moves.filter((move: any) => !move.activeSessionOnly).map((move: any) => ({ ...move, sets: [] })),
 });
 
 const setDocumentId = (moveIndex: number, setIndex: number) => `${moveIndex}_${setIndex}`;
@@ -285,6 +287,16 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     return setDoc(doc(db, 'users', uid, 'splits', splitDocumentId(String(item.id))), { clientId: String(item.id), data: item, position, setTargets: {}, updatedAt: Date.now() });
   }, [uid]);
 
+  const appendSplitExercise = useCallback(({ splitId, move }: { splitId: string; move: any }) => {
+    if (!uid || !db) return Promise.reject(new Error('Sign in to update workout splits.'));
+    const { activeSessionOnly: _activeSessionOnly, addToSplitOnFinish: _addToSplitOnFinish, ...savedMove } = move;
+    const sets = savedMove.sets.map(({ addedDuringWorkout: _addedDuringWorkout, ...set }: any) => ({ ...set, done: false }));
+    return updateDoc(doc(db, 'users', uid, 'splits', splitDocumentId(splitId)), {
+      'data.moves': arrayUnion({ ...savedMove, sets }),
+      updatedAt: Date.now(),
+    });
+  }, [uid]);
+
   const updateSplitSetTargets = useCallback(({ splitId, targets }: {
     splitId: string; targets: { moveKey: string; setIndex: number; weight: string; reps: string }[];
   }) => {
@@ -346,20 +358,20 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     const batch = writeBatch(db);
     batch.set(parentRef, parentData, { merge: true });
     if (!current.exists()) {
-      working.moves.forEach((move: any, moveIndex: number) => move.sets.forEach((set: any, setIndex: number) => {
+      working.moves.forEach((move: any, moveIndex: number) => { if (move.activeSessionOnly) return; move.sets.forEach((set: any, setIndex: number) => {
         batch.set(doc(setsRef, setDocumentId(moveIndex, setIndex)), {
           moveIndex, setIndex, weight: String(set.weight ?? '0'), reps: String(set.reps ?? '10'), done: Boolean(set.done), addedDuringWorkout: Boolean(set.addedDuringWorkout),
         });
-      }));
+      }); });
     } else {
       const existingSets = await getDocs(setsRef);
       const existingIds = new Set(existingSets.docs.map((set) => set.id));
-      working.moves.forEach((move: any, moveIndex: number) => move.sets.forEach((set: any, setIndex: number) => {
+      working.moves.forEach((move: any, moveIndex: number) => { if (move.activeSessionOnly) return; move.sets.forEach((set: any, setIndex: number) => {
         const id = setDocumentId(moveIndex, setIndex);
         if (!existingIds.has(id)) batch.set(doc(setsRef, id), {
           moveIndex, setIndex, weight: String(set.weight ?? '0'), reps: String(set.reps ?? '10'), done: Boolean(set.done), addedDuringWorkout: Boolean(set.addedDuringWorkout),
         });
-      }));
+      }); });
     }
     await batch.commit();
     activeParentPayload.current = comparable;
@@ -414,6 +426,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     upsertHistoryItem,
     deleteHistoryItem,
     upsertSplit,
+    appendSplitExercise,
     updateSplitSetTargets,
     deleteSplit,
     reorderSplitPositions,
