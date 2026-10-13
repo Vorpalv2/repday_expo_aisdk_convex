@@ -6,6 +6,7 @@ import { useWorkoutData } from '../backend/useWorkoutData';
 import type { ActiveWorkout, FocusDraft, Move, Session, SetEntry, TrainingGoal, WeightUnit, WorkoutRecord } from '../backend/contracts';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
+import * as Updates from 'expo-updates';
 import * as ImagePicker from 'expo-image-picker';
 import { useCameraPermissions } from 'expo-camera';
 import { FormCoachCameraScreen } from '../components/FormCoachCameraScreen';
@@ -83,18 +84,33 @@ function ScrollCue({visible,atBottom,onPress,bottom=22}:{visible:boolean;atBotto
 export default function HomeScreen(){
  const {isLoading,isAuthenticated,user}=useBackendAuth();
  const [minimumLoadingElapsed,setMinimumLoadingElapsed]=useState(false);
+ const [authWaitExpired,setAuthWaitExpired]=useState(false);
  const [entryRoute,setEntryRoute]=useState<'auth'|'onboarding'|'returningLoading'|'newUserLoading'|'app'|null>(null);
  const [welcomeMessage,setWelcomeMessage]=useState<string|null>(null);
  useEffect(()=>{
   const timer=setTimeout(()=>setMinimumLoadingElapsed(true),3000);
   return()=>clearTimeout(timer);
  },[]);
+ useEffect(()=>{
+  if(!isLoading){setAuthWaitExpired(false);return;}
+  const timer=setTimeout(()=>setAuthWaitExpired(true),15000);
+  return()=>clearTimeout(timer);
+ },[isLoading]);
+ if(isLoading&&authWaitExpired)return <StartupRecoveryScreen message="Repday is taking longer than expected to connect. Check your internet connection, then reload the app."/>;
  if(isLoading||!minimumLoadingElapsed)return <LoadingScreen/>;
  const accountName=user?.displayName?.trim()||user?.email?.split('@')[0]?.replace(/[._-]+/g,' ').replace(/\b\w/g,letter=>letter.toUpperCase())||'there';
  if(!isAuthenticated)return <SignInScreen onAuthAttempt={()=>setEntryRoute('auth')} onExistingUser={name=>{setWelcomeMessage(`Welcome back, ${name||accountName}!`);setEntryRoute('returningLoading');}} onNewUser={name=>{setWelcomeMessage(`Welcome, ${name||accountName}!`);setEntryRoute('onboarding');}}/>;
  if(entryRoute==='auth'||entryRoute==='onboarding')return <SignInScreen mode={entryRoute} onAuthAttempt={()=>setEntryRoute('auth')} onExistingUser={name=>{setWelcomeMessage(`Welcome back, ${name||accountName}!`);setEntryRoute('returningLoading');}} onNewUser={name=>{setWelcomeMessage(`Welcome, ${name||accountName}!`);setEntryRoute('onboarding');}} onOnboardingComplete={()=>setEntryRoute('newUserLoading')}/>;
  if(entryRoute==='returningLoading'||entryRoute==='newUserLoading')return <LoadingScreen onComplete={()=>setEntryRoute('app')}/>;
  return <WorkoutApp welcomeMessage={welcomeMessage}/>;
+}
+
+function StartupRecoveryScreen({message,onRetry}:{message:string;onRetry?:()=>void}){
+ const retry=async()=>{
+  if(onRetry){onRetry();return;}
+  try{if(Platform.OS==='web'&&typeof window!=='undefined')window.location.reload();else await Updates.reloadAsync();}catch{}
+ };
+ return <SafeAreaView style={{flex:1,backgroundColor:'#fff',justifyContent:'center',alignItems:'center',padding:28}}><Text style={{fontSize:25,fontWeight:'800',color:'#17191d',textAlign:'center'}}>Still loading?</Text><Text style={{fontSize:16,lineHeight:24,color:'#69727c',textAlign:'center',marginTop:10,maxWidth:360}}>{message}</Text><Pressable accessibilityRole="button" onPress={retry} style={{marginTop:22,backgroundColor:'#3478f6',borderRadius:18,paddingHorizontal:26,paddingVertical:14}}><Text style={{fontSize:16,fontWeight:'800',color:'#fff'}}>Try again</Text></Pressable></SafeAreaView>;
 }
 
 function LoadingScreen({onComplete}:{onComplete?:()=>void}){
@@ -204,13 +220,20 @@ function WorkoutApp({welcomeMessage}:{welcomeMessage?:string|null}){
  const [activeDataHydrated,setActiveDataHydrated]=useState(false);
  const [pendingOnboardingPreferences,setPendingOnboardingPreferences]=useState<OnboardingPreferences|null>(null);
  const {
-  remoteSettings,remoteSplits,remoteHistoryResults,remoteHistoryStatus,loadMoreHistory,
+  remoteSettings,remoteSplits,remoteHistoryResults,remoteHistoryStatus,loadMoreHistory,remoteDataError,retryRemoteData,
   remoteActiveWorkout,profilePhotoUrl,saveActiveWorkout:saveActiveWorkoutCloud,syncSplits:syncSplitsCloud,syncHistory:syncHistoryCloud,
   upsertHistoryItem:upsertHistoryItemCloud,deleteHistoryItem:deleteHistoryCloud,
   upsertSplit:upsertSplitCloud,appendSplitExercise:appendSplitExerciseCloud,updateSplitSetTargets:updateSplitSetTargetsCloud,deleteSplit:deleteSplitCloud,reorderSplitPositions:reorderSplitPositionsCloud,
   saveSettings:saveSettingsCloud,
   migrateLegacyActiveWorkout:migrateLegacyActiveWorkoutCloud,uploadProfilePhoto,
  }=useWorkoutData({isAuthenticated,tab,cloudOwnerId,googlePhotoUrl});
+ const userDataReady=storageReady&&(!isAuthenticated||remoteSettings===null||(!!remoteSettings?.userId&&cloudOwnerId===remoteSettings.userId));
+ const [dataWaitExpired,setDataWaitExpired]=useState(false);
+ useEffect(()=>{
+  if(userDataReady){setDataWaitExpired(false);return;}
+  const timer=setTimeout(()=>setDataWaitExpired(true),20000);
+  return()=>clearTimeout(timer);
+ },[userDataReady]);
  const notifyToast=(message:string)=>{setToast(message);toastMotion.stopAnimation();toastMotion.setValue(0);Animated.timing(toastMotion,{toValue:1,duration:180,easing:Easing.out(Easing.cubic),useNativeDriver:true}).start();if(toastTimer.current)clearTimeout(toastTimer.current);toastTimer.current=setTimeout(()=>Animated.timing(toastMotion,{toValue:0,duration:160,useNativeDriver:true}).start(({finished})=>{if(finished)setToast(null);}),1840);};
  useEffect(()=>{if(welcomeMessage)notifyToast(welcomeMessage);},[welcomeMessage]);
  const chooseProfilePhoto=async()=>{
@@ -408,7 +431,9 @@ function WorkoutApp({welcomeMessage}:{welcomeMessage?:string|null}){
  const sendCoachQuestion=async(question=coachInput,sessionContext:WorkoutRecord|null=coachWorkoutContext,retry=false)=>{const value=question.trim();if(!value||coachBusy)return;if(!retry)setCoachMessages(current=>[...(sessionContext?[]:current),{role:'user',text:value}]);setCoachInput('');setCoachError('');setFailedCoachQuestion(null);setCoachBusy(true);try{const context=sessionContext?`Selected completed workout: ${sessionContext.name}\nDate: ${new Date(sessionContext.startedAt).toLocaleDateString()}\nDuration: ${formatTime(sessionContext.duration)}\nCompleted sets: ${sessionContext.sets}\nVolume: ${Math.round(sessionContext.volume)} kg\nExercises:\n${sessionContext.session.moves.map(move=>`- ${move.name}: ${move.sets.map((set,index)=>`Set ${index+1}: ${set.weight||'0'} kg × ${set.reps||'—'} reps (${set.done?'completed':'not completed'})`).join('; ')}`).join('\n')}`:[focusPlan?`Today’s split: ${focusPlan.name}; exercises: ${focusPlan.moves.map(move=>move.name).join(', ')}.`:'No split planned today.',...history.slice(0,5).map(record=>`${record.name}: ${record.sets} sets, ${Math.round(record.volume)} kg volume, ${formatTime(record.duration)} on ${new Date(record.startedAt).toLocaleDateString()}.`)].join('\n');const answer=await askCoachQuestion(value,context,coachModel);if(!answer.trim())throw new Error('AI Coach returned an empty reply. Please retry.');setCoachMessages(current=>[...current,{role:'assistant',text:answer.trim()}]);setFailedCoachQuestion(null);}catch(error){setFailedCoachQuestion(value);setCoachError(error instanceof Error?error.message:'AI Coach is temporarily unavailable.');}finally{setCoachBusy(false);}};
  const askAboutCompletedWorkout=(record:WorkoutRecord)=>{const prompt=historyCoachPrompt.trim();if(!prompt||coachBusy)return;setCoachWorkoutContext(record);setCoachMessages([]);setCoachInput('');setHistoryCoachPrompt('');setHistoryAiOpen(false);setModal(null);setTab('Coach');void sendCoachQuestion(prompt,record);};
  const confirmDeleteAccount=async()=>{if(accountDeleteBusy)return;setAccountDeleteBusy(true);setAccountDeleteStage('Verifying your account…');setAccountDeleteError('');try{await deleteAccount(accountDeletePassword||undefined,setAccountDeleteStage);const keys=await AsyncStorage.getAllKeys();await AsyncStorage.multiRemove(keys.filter(key=>key.startsWith('repday.')));setAccountDeleteOpen(false);}catch(error){setAccountDeleteError(error instanceof Error?error.message:'Could not delete the account. Try again.');}finally{setAccountDeleteBusy(false);setAccountDeleteStage('');}};
- const userDataReady=storageReady&&(!isAuthenticated||remoteSettings===null||(!!remoteSettings?.userId&&cloudOwnerId===remoteSettings.userId));
+ const retryAccountData=()=>{setDataWaitExpired(false);retryRemoteData();setTimeout(()=>setDataWaitExpired(true),20000);};
+ if(remoteDataError)return <StartupRecoveryScreen message={remoteDataError} onRetry={retryAccountData}/>;
+ if(dataWaitExpired&&!userDataReady)return <StartupRecoveryScreen message="Your account data is taking longer than usual to load. Check your connection and try again." onRetry={retryAccountData}/>;
  if(!userDataReady)return <LoadingScreen/>;
 
  return <SafeAreaView style={styles.safe} edges={['top','bottom']}><StatusBar style={theme==='dark'?'light':'dark'}/><View style={styles.root} {...backGesture.panHandlers}>

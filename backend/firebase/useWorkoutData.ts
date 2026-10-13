@@ -69,6 +69,8 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
   const [remoteHistoryResults, setRemoteHistoryResults] = useState<WorkoutRecord[]>([]);
   const [remoteHistoryStatus, setRemoteHistoryStatus] = useState('LoadingFirstPage');
   const [remoteActiveWorkout, setRemoteActiveWorkout] = useState<ActiveWorkoutSnapshot | null>();
+  const [remoteDataError, setRemoteDataError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>();
   const historyCursor = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const olderHistory = useRef<WorkoutRecord[]>([]);
@@ -97,6 +99,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
       setRemoteHistoryStatus('Exhausted');
       setRemoteActiveWorkout(null);
       setProfilePhotoUrl(null);
+      setRemoteDataError(null);
       historyCursor.current = null;
       olderHistory.current = [];
       activeParentPayload.current = null;
@@ -109,6 +112,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     const historyRef = collection(db, 'users', uid, 'history');
     const activeRef = doc(db, 'users', uid, 'activeWorkouts', 'current');
     const activeSetsRef = collection(db, 'users', uid, 'activeWorkouts', 'current', 'sets');
+    setRemoteDataError(null);
 
     const unsubscribers = [
       onSnapshot(settingsRef, (snapshot) => {
@@ -120,7 +124,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
           user: { name: authUser?.displayName ?? null, email: authUser?.email ?? null },
           initialized: snapshot.exists() && Boolean(snapshot.data().initialized ?? true),
         } as WorkoutSettings);
-      }),
+      }, (error) => { console.warn('[Repday] Settings listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
       onSnapshot(query(splitsRef, orderBy('position', 'asc')), (snapshot) => {
         const sessions = snapshot.docs.map((item) => {
           const split = item.data();
@@ -153,7 +157,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
           };
         });
         setRemoteSplits({ userId: uid, sessions });
-      }),
+      }, (error) => { console.warn('[Repday] Splits listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
       onSnapshot(query(historyRef, orderBy('startedAt', 'desc'), limit(30)), (snapshot) => {
         historyCursor.current = snapshot.docs.at(-1) ?? null;
         const firstPage = snapshot.docs.map((item) => item.data().data as WorkoutRecord);
@@ -161,7 +165,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
         const older = olderHistory.current.filter((item) => !firstIds.has(item.id));
         setRemoteHistoryResults([...firstPage, ...older]);
         setRemoteHistoryStatus(snapshot.size < 30 ? 'Exhausted' : 'CanLoadMore');
-      }),
+      }, (error) => { console.warn('[Repday] History listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
       onSnapshot(activeRef, (snapshot) => {
         if (!snapshot.exists()) {
           activeParentPayload.current = null;
@@ -183,7 +187,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
           working: withActiveSets(data.working, activeSetRows.current),
           restEndsAt: data.restEndsAt ?? null,
         }));
-      }),
+      }, (error) => { console.warn('[Repday] Active workout listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
       onSnapshot(activeSetsRef, (snapshot) => {
         const rows = snapshot.docs.map((item) => item.data());
         activeSetRows.current = rows;
@@ -194,7 +198,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
             working: withActiveSets(current.working, rows),
           };
         });
-      }),
+      }, (error) => { console.warn('[Repday] Active set listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
     ];
 
     if (tab === 'Profile') {
@@ -210,7 +214,16 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [uid, tab, googlePhotoUrl]);
+  }, [uid, tab, googlePhotoUrl, retryCount]);
+
+  const retryRemoteData = useCallback(() => {
+    setRemoteDataError(null);
+    setRemoteSettings(undefined);
+    setRemoteSplits(undefined);
+    setRemoteHistoryStatus('LoadingFirstPage');
+    setRemoteActiveWorkout(undefined);
+    setRetryCount((count) => count + 1);
+  }, []);
 
   const loadMoreHistory = useCallback(async (count: number) => {
     if (!uid || !db || !historyCursor.current || remoteHistoryStatus !== 'CanLoadMore') return;
@@ -421,6 +434,8 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
   }, [uid]);
 
   return {
+    remoteDataError,
+    retryRemoteData,
     remoteSettings,
     remoteSplits,
     remoteHistoryResults,

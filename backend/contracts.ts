@@ -81,6 +81,8 @@ export type ActiveWorkoutSnapshot = {
 
 /** App-facing read/write contract. Adapters translate these operations to their SDK. */
 export interface WorkoutBackendBindings {
+  remoteDataError: string | null;
+  retryRemoteData: () => void;
   remoteSettings: WorkoutSettings | null | undefined;
   remoteSplits: { userId?: string; sessions: Session[] } | null | undefined;
   remoteHistoryResults: WorkoutRecord[];
