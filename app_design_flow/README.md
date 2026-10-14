@@ -9,6 +9,8 @@ Use this folder to understand how a user action travels through Repday's fronten
 - [Workout splits](frontend/split-management.md) — create, edit, reorder, plan, and delete splits.
 - [History and progress](frontend/history-and-progress.md) — finish records, Firebase history, progress views, and deletion.
 - [Workout import](frontend/workout-import.md) — shared/pasted notes, on-device parsing, AI parsing, review, and save.
+- [Exercise catalog and search](frontend/exercise-catalog-and-search.md) — upstream catalog loading, local filtering, list virtualization, and the current non-paginated scrolling behavior.
+- [Form Coach / Pose Coach](frontend/pose-coach.md) — active-session entry, browser camera and MediaPipe inference, movement rules, rep feedback, privacy, and native-platform limits.
 
 ## Backend
 
