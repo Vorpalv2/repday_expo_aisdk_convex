@@ -1,3 +1,6 @@
+Inactive/ This branch is not being actively managed, honestly hasnt been for a while and is probably around 10s of commits behind the other branch, so look over to the second branch to see latest changes and what i've been up to lately.
+
+
 # Repday
 
 A small Expo strength training tracker inspired by the supplied mobile design. It includes starter Push, Pull, and Legs splits, user-created splits, exercise search, editable set weight and rep targets, a live workout timer, pause and finish controls, session summary, weekly planning, and progress tracking.
