@@ -36,7 +36,7 @@ function loadVisionApi(): Promise<VisionApi> {
 function isMobileBrowser() {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 }
-type MovementKind = 'elbow' | 'knee' | 'latPulldown' | 'row' | 'hipHinge' | 'calf' | 'fly' | 'pullover' | 'unsupported';
+type MovementKind = 'elbow' | 'knee' | 'latPulldown' | 'row' | 'hipHinge' | 'calf' | 'fly' | 'lateralRaise' | 'pullover' | 'unsupported';
 const MEDIAPIPE_VERSION = '1.1.0';
 const POSE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
 const POSE_CONNECTIONS: [number, number][] = [
@@ -49,7 +49,8 @@ function movementKind(move: Move): MovementKind {
   const name = `${move.name} ${move.target ?? ''}`.toLowerCase();
   if (/\b(lat\s*)?pulldowns?\b|\bpull[\s-]*downs?\b/.test(name)) return 'latPulldown';
   if (/\b(pull[\s-]?overs?)\b/.test(name)) return 'pullover';
-  if (/\b(fly|flys|flyes|flies|pec\s*deck|cable\s+crossover)\b/.test(name)) return 'fly';
+  if (/\b(lateral|side)\s+raises?\b/.test(name)) return 'lateralRaise';
+  if (/\b(?:fly|flys|flyes|flies|pec[\s-]*deck|butterfly|cable[\s-]*(?:chest[\s-]*)?(?:fly|flys|flyes|flies)|chest[\s-]*(?:fly|flys|flyes|flies)|cable[\s-]*cross[\s-]*overs?)\b/.test(name)) return 'fly';
   if (/\b(calf|heel)\s*(raises?|press)\b/.test(name)) return 'calf';
   if (/\b(romanian\s+deadlift|rdl|deadlifts?)\b/.test(name)) return 'hipHinge';
   if (/\b(row|rows|rowing)\b/.test(name)) return 'row';
@@ -110,6 +111,7 @@ function movementMetric(points: Point[], kind: MovementKind) {
   if (kind === 'hipHinge') return bestHipAngle(points);
   if (kind === 'calf') return bestCalfRaiseMetric(points);
   if (kind === 'fly') return bestArmSpan(points);
+  if (kind === 'lateralRaise') return bestShoulderAngle(points);
   if (kind === 'pullover') return bestShoulderAngle(points);
   return bestJointAngle(points, kind === 'knee' ? 'knee' : 'elbow');
 }
@@ -117,6 +119,7 @@ function movementZone(points: Point[], kind: MovementKind, angle: number, bendTh
   if (kind === 'hipHinge') return angle >= 155 ? 'top' : angle <= 125 ? 'bottom' : null;
   if (kind === 'calf') return angle >= 62 ? 'top' : angle <= 38 ? 'bottom' : null;
   if (kind === 'fly') return angle >= 220 ? 'top' : angle <= 145 ? 'bottom' : null;
+  if (kind === 'lateralRaise') return angle >= 65 ? 'top' : angle <= 30 ? 'bottom' : null;
   if (kind === 'pullover') return angle >= 150 ? 'top' : angle <= 75 ? 'bottom' : null;
   if (kind !== 'latPulldown' && kind !== 'row') return angle >= 155 ? 'top' : angle <= bendThreshold ? 'bottom' : null;
   const sides = [[11, 13, 15, 23], [12, 14, 16, 24]];
@@ -334,14 +337,14 @@ export function FormCoachCameraScreen({ exercise, weightUnit, elapsedSeconds, re
             for (let index = 0; index < points.length; index++) {
               const point = points[index];
               if (confidence(point) < 0.38) continue;
-              const activeJoint = kind === 'knee' ? index === 23 || index === 24 || index === 25 || index === 26 || index === 27 || index === 28 : kind === 'hipHinge' ? index === 11 || index === 12 || index === 23 || index === 24 || index === 25 || index === 26 : kind === 'calf' ? index === 27 || index === 28 || index === 29 || index === 30 || index === 31 || index === 32 : kind === 'pullover' ? index === 11 || index === 12 || index === 13 || index === 14 || index === 23 || index === 24 : kind === 'fly' ? index === 11 || index === 12 || index === 15 || index === 16 : index === 13 || index === 14;
+              const activeJoint = kind === 'knee' ? index === 23 || index === 24 || index === 25 || index === 26 || index === 27 || index === 28 : kind === 'hipHinge' ? index === 11 || index === 12 || index === 23 || index === 24 || index === 25 || index === 26 : kind === 'calf' ? index === 27 || index === 28 || index === 29 || index === 30 || index === 31 || index === 32 : kind === 'pullover' ? index === 11 || index === 12 || index === 13 || index === 14 || index === 23 || index === 24 : kind === 'fly' ? index === 11 || index === 12 || index === 15 || index === 16 : kind === 'lateralRaise' ? index === 11 || index === 12 || index === 13 || index === 14 || index === 15 || index === 16 || index === 23 || index === 24 : index === 13 || index === 14;
               context.beginPath(); context.fillStyle = activeJoint ? attemptOutcomeRef.current === 'short' ? '#ffbd4a' : '#d4f64c' : '#fff';
               context.arc(mapX(point.x), mapY(point.y), Math.max(3, width * 0.009), 0, Math.PI * 2); context.fill();
             }
             if (kind !== 'unsupported') {
               const angle = movementMetric(points, kind);
               setJointAngle(angle);
-              if (angle === null) setFeedback(kind === 'knee' ? 'Keep your hip, knee and ankle visible' : kind === 'hipHinge' ? 'Turn side-on; keep your hip, shoulder and knee visible' : kind === 'calf' ? 'Turn side-on; keep your ankle, heel and toes visible' : kind === 'fly' ? 'Face the phone; keep both shoulders and wrists visible' : kind === 'pullover' ? 'Turn side-on; keep your hip, shoulder and elbow visible' : 'Keep a shoulder, elbow and wrist visible');
+              if (angle === null) setFeedback(kind === 'knee' ? 'Keep your hip, knee and ankle visible' : kind === 'hipHinge' ? 'Turn side-on; keep your hip, shoulder and knee visible' : kind === 'calf' ? 'Turn side-on; keep your ankle, heel and toes visible' : kind === 'fly' ? 'Face the phone; keep both shoulders and wrists visible' : kind === 'lateralRaise' ? 'Face the phone; keep both shoulders, elbows and hips visible' : kind === 'pullover' ? 'Turn side-on; keep your hip, shoulder and elbow visible' : 'Keep a shoulder, elbow and wrist visible');
               else {
                 const filteredAngle = smoothedAngleRef.current === null ? angle : smoothedAngleRef.current * 0.65 + angle * 0.35;
                 smoothedAngleRef.current = filteredAngle;
@@ -382,13 +385,13 @@ export function FormCoachCameraScreen({ exercise, weightUnit, elapsedSeconds, re
                   } else if (repPhaseRef.current === 'moving' && !targetReachedRef.current) {
                     setCoachStats(stats => ({ ...stats, short: stats.short + 1 }));
                     announceAttempt('short');
-                    setFeedback(kind === 'latPulldown' ? 'Incomplete pull · bring your elbows farther down' : kind === 'row' ? 'Incomplete row · pull your elbows farther back' : kind === 'hipHinge' ? 'Short hinge · lower your hips farther with control' : kind === 'calf' ? 'Short raise · lift your heels higher' : kind === 'fly' ? 'Short range · open or close your arms farther' : kind === 'pullover' ? 'Short range · lower your arms farther toward your torso' : kind === 'elbow' ? 'Short range · bend your elbow further next rep' : 'Short range · bend your knee further next rep');
+                    setFeedback(kind === 'latPulldown' ? 'Incomplete pull · bring your elbows farther down' : kind === 'row' ? 'Incomplete row · pull your elbows farther back' : kind === 'hipHinge' ? 'Short hinge · lower your hips farther with control' : kind === 'calf' ? 'Short raise · lift your heels higher' : kind === 'fly' ? 'Short range · open or close your arms farther' : kind === 'lateralRaise' ? 'Short range · raise your arms closer to shoulder height' : kind === 'pullover' ? 'Short range · lower your arms farther toward your torso' : kind === 'elbow' ? 'Short range · bend your elbow further next rep' : 'Short range · bend your knee further next rep');
                   } else if (repPhaseRef.current !== 'top') setFeedback('Good start position · lower with control');
                   repPhaseRef.current = 'top';
                 } else if (stableZoneFramesRef.current >= 3 && zone === 'bottom' && (repPhaseRef.current === 'top' || repPhaseRef.current === 'moving')) {
                   repPhaseRef.current = 'bottom';
-                  setFeedback(kind === 'latPulldown' ? 'Full pull reached · return your arms overhead' : kind === 'row' ? 'Row reached · extend your arms forward again' : kind === 'hipHinge' ? 'Hinge reached · stand tall with control' : kind === 'calf' ? 'Heel raise reached · lower your heels slowly' : kind === 'fly' ? 'Arms together · open your arms under control' : kind === 'pullover' ? 'Arms lowered · return them overhead under control' : 'Full range reached · return to the start');
-                } else if (repPhaseRef.current === 'top' && filteredAngle <= (kind === 'calf' ? 48 : kind === 'hipHinge' ? 145 : kind === 'fly' ? 200 : kind === 'pullover' ? 135 : 140)) {
+                  setFeedback(kind === 'latPulldown' ? 'Full pull reached · return your arms overhead' : kind === 'row' ? 'Row reached · extend your arms forward again' : kind === 'hipHinge' ? 'Hinge reached · stand tall with control' : kind === 'calf' ? 'Heel raise reached · lower your heels slowly' : kind === 'fly' ? 'Arms together · open your arms under control' : kind === 'lateralRaise' ? 'Arms raised · lower them under control' : kind === 'pullover' ? 'Arms lowered · return them overhead under control' : 'Full range reached · return to the start');
+                } else if (repPhaseRef.current === 'top' && filteredAngle <= (kind === 'calf' ? 48 : kind === 'hipHinge' ? 145 : kind === 'fly' ? 200 : kind === 'lateralRaise' ? 55 : kind === 'pullover' ? 135 : 140)) {
                   repPhaseRef.current = 'moving';
                   setFeedback('Lower through a full, controlled range');
                 } else if (repPhaseRef.current === 'unknown') {
@@ -633,7 +636,7 @@ export function FormCoachCameraScreen({ exercise, weightUnit, elapsedSeconds, re
   const elapsedLabel = `${String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}:${String(elapsedSeconds % 60).padStart(2, '0')}`;
   const statusText = isResting ? 'REST TIMER' : userPaused ? 'PAUSED' : analysisState === 'tracking' ? poseVisible ? 'POSE DETECTED' : 'FINDING YOUR POSE…' : analysisState === 'loading' ? 'PREPARING POSE TRACKING' : 'CAMERA PREVIEW';
   const isPullUp = /\b(pull[\s-]?ups?|chin[\s-]?ups?)\b/i.test(exercise.name);
-  const setupCue = kind === 'latPulldown' ? 'Face the phone; keep shoulders, elbows and hands visible overhead.' : kind === 'row' ? 'Set the phone at a slight side angle; keep hips, shoulders, elbows and wrists in frame.' : kind === 'hipHinge' ? 'Set the phone side-on; keep shoulders, hips and knees visible as you hinge.' : kind === 'calf' ? 'Set the phone side-on; keep your ankles, heels and toes visible.' : kind === 'fly' ? 'Face the phone; keep both shoulders, elbows and wrists in frame.' : kind === 'pullover' ? 'Set the phone side-on; keep your hip, shoulder, elbow and wrist visible.' : kind === 'knee' ? 'Set the phone side-on; keep hips, knees and ankles in frame.' : kind === 'elbow' && isPullUp ? 'Set the phone slightly in front or to the side; keep shoulders, elbows, wrists and torso visible through the hang and pull.' : kind === 'elbow' ? 'Set the phone side-on; keep shoulder, elbow and wrist in frame.' : 'Set the phone so your body and the full movement stay in frame.';
+  const setupCue = kind === 'latPulldown' ? 'Face the phone; keep shoulders, elbows and hands visible overhead.' : kind === 'row' ? 'Set the phone at a slight side angle; keep hips, shoulders, elbows and wrists in frame.' : kind === 'hipHinge' ? 'Set the phone side-on; keep shoulders, hips and knees visible as you hinge.' : kind === 'calf' ? 'Set the phone side-on; keep your ankles, heels and toes visible.' : kind === 'fly' ? 'Face the phone; keep both shoulders, elbows and wrists in frame.' : kind === 'lateralRaise' ? 'Face the phone; keep both shoulders, elbows and hips in frame as you raise your arms.' : kind === 'pullover' ? 'Set the phone side-on; keep your hip, shoulder, elbow and wrist visible.' : kind === 'knee' ? 'Set the phone side-on; keep hips, knees and ankles in frame.' : kind === 'elbow' && isPullUp ? 'Set the phone slightly in front or to the side; keep shoulders, elbows, wrists and torso visible through the hang and pull.' : kind === 'elbow' ? 'Set the phone side-on; keep shoulder, elbow and wrist in frame.' : 'Set the phone so your body and the full movement stay in frame.';
   const videoElement = createElement('video', { ref: videoRef, autoPlay: true, playsInline: true, muted: true, 'aria-label': 'Live camera preview used for on-device pose tracking', style: { position: 'absolute', width: '100%', height: '100%', objectFit: 'cover', transform: facing === 'user' ? 'scaleX(-1)' : undefined, backgroundColor: '#111821' } });
   const canvasElement = createElement('canvas', { ref: canvasRef, 'aria-hidden': true, style: { position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' } });
 
@@ -652,7 +655,7 @@ export function FormCoachCameraScreen({ exercise, weightUnit, elapsedSeconds, re
               { label: 'REPS', value: String(repCount).padStart(2, '0'), detail: targetReached ? 'target reached' : `target ${repsTarget}` },
               { label: 'TIME', value: elapsedLabel, detail: 'session' },
               { label: 'SET', value: `${displaySetIndex + 1}/${exercise.sets.length || 1}`, detail: 'planned' },
-              { label: kind === 'unsupported' ? 'LOAD' : kind === 'calf' ? 'HEEL LIFT' : kind === 'fly' ? 'ARM SPAN' : kind === 'pullover' ? 'SHOULDER' : 'ANGLE', value: kind === 'unsupported' ? loadLabel : jointAngle === null ? '—' : kind === 'calf' || kind === 'fly' ? `${jointAngle}%` : `${jointAngle}°`, detail: kind === 'unsupported' ? 'planned' : kind === 'knee' ? 'knee' : kind === 'hipHinge' ? 'hip' : kind === 'calf' ? 'foot position' : kind === 'fly' ? 'shoulder width' : kind === 'pullover' ? 'arm position' : 'elbow' },
+              { label: kind === 'unsupported' ? 'LOAD' : kind === 'calf' ? 'HEEL LIFT' : kind === 'fly' ? 'ARM SPAN' : kind === 'lateralRaise' || kind === 'pullover' ? 'SHOULDER' : 'ANGLE', value: kind === 'unsupported' ? loadLabel : jointAngle === null ? '—' : kind === 'calf' || kind === 'fly' ? `${jointAngle}%` : `${jointAngle}°`, detail: kind === 'unsupported' ? 'planned' : kind === 'knee' ? 'knee' : kind === 'hipHinge' ? 'hip' : kind === 'calf' ? 'foot position' : kind === 'fly' ? 'shoulder width' : kind === 'lateralRaise' ? 'arm angle' : kind === 'pullover' ? 'arm position' : 'elbow' },
             ].map((metric, index) => <View key={metric.label} style={[styles.metricCard, index === 0 && styles.accentCard]}><Text style={styles.metricLabel}>{metric.label}</Text><Text numberOfLines={1} adjustsFontSizeToFit style={[styles.metricValue, index === 0 && styles.accentValue]}>{metric.value}</Text><Text style={styles.metricDetail}>{metric.detail}</Text></View>)}
           </View>
           {countdown !== null && countdown > 0 && <View pointerEvents="none" style={[styles.countdownOverlay, { bottom: bottomPanelHeight + 8 }]}><Text style={[styles.countdownNumber, { fontSize: Math.max(92, (windowHeight - 312) * 0.58), lineHeight: Math.max(108, (windowHeight - 312) * 0.66) }]}>{countdown}</Text></View>}

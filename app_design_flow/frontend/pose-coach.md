@@ -38,7 +38,8 @@ The current exercise mapping recognizes these movement families from the exercis
 | Row | Rows and rowing | Elbow angle and wrist reach relative to shoulder/hip distance |
 | Hip hinge | Deadlifts and Romanian deadlifts/RDLs | Knee–hip–shoulder angle |
 | Calf raise | Calf/heel raises and calf press | Ankle lift relative to heel-to-toe length |
-| Fly | Fly/flyes/flys, pec deck, cable crossover names | Distance between wrists, normalized by shoulder width |
+| Lateral raise | Lateral raises and side raises, including dumbbell/cable/machine names | Upper-arm angle relative to torso |
+| Fly | Cable/chest fly variations, fly/flyes/flys, pec deck, butterfly, cable crossover | Distance between wrists, normalized by shoulder width |
 | Pullover | Pullover/pull-over names, including triceps pullovers | Angle between upper arm and torso at the shoulder |
 | Unsupported | Anything not matched | Pose overlay only; no rep-count rule |
 
@@ -46,11 +47,13 @@ For elbow and knee angles, the screen chooses the more visible side and requires
 
 Deadlift/RDL zones use the knee–hip–shoulder angle, so the phone should be side-on and the shoulder, hip, and knee should remain visible. Leg curls and extensions share the knee-angle rep counter with squats and leg presses; they are matched explicitly by exercise name. Calf raises use the vertical gap between the ankle and toe landmarks divided by heel-to-toe length. The user needs a side view with visible foot landmarks. These heuristics can count clear movement ranges, but cannot verify load, machine setup, or compensations elsewhere in the body.
 
+Lateral raises use the elbow–shoulder–hip angle, with the user facing the camera so the arm's rise to shoulder height is visible in the image plane. This counts a broad raise-and-lower range, but does not distinguish dumbbell, cable, or machine resistance.
+
 Pull-ups, chin-ups, and assisted pull-ups use the elbow-angle counter and ask for a slightly front or side camera view. This counts the bend-and-return cycle; it does not check that the chin clears the bar or measure machine assistance.
 
 The elbow bend threshold is exercise-name dependent: names containing “curl” use 76 degrees; other elbow exercises use 94 degrees. Knee bends use 102 degrees. The row top/bottom thresholds use elbow angles of 145/115 degrees plus wrist reach; lat pulldown zones use arm-overhead and pulled-down position checks.
 
-Fly rules require both shoulders, elbows, and wrists to be visible. Wrist-to-wrist span is divided by shoulder-to-shoulder width; a span at or above 220% is the arms-open zone and 145% or below is the arms-together zone. The camera cue asks the user to face the phone, since a side view hides the across-body span.
+Fly rules match cable chest-fly name variants, chest fly names, fly/flyes/flys, pec deck, butterfly, and cable crossover names. They require both shoulders, elbows, and wrists to be visible. Wrist-to-wrist span is divided by shoulder-to-shoulder width; a span at or above 220% is the arms-open zone and 145% or below is the arms-together zone. The camera cue asks the user to face the phone, since a side view hides the across-body span. Chest presses continue to use the elbow-angle rule rather than being treated as fly movements.
 
 Pullover rules use the more visible side's elbow–shoulder–hip angle. An angle at or above 150 degrees is treated as arms overhead; an angle at or below 75 degrees is the lowered zone. The camera cue asks for a side view and visible hip, shoulder, elbow, and wrist. This can recognize a broad overhead-to-lowered path, but it cannot confirm a specific implement (bar, cable, or dumbbell) or distinguish every pullover variation.
 
