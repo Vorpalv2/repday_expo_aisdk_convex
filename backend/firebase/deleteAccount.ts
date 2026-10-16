@@ -8,6 +8,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocFromServer,
   getDocs,
   writeBatch,
 } from 'firebase/firestore';
@@ -18,13 +19,14 @@ import { reauthenticateGoogleUser } from './googleSignIn';
 const USER_COLLECTIONS = ['settings', 'splits', 'history', 'activeWorkouts', 'profilePhotos'] as const;
 
 async function clearCollection(path: string) {
-  if (!db) return;
-  const snapshot = await getDocs(collection(db, path));
+  const database = db;
+  if (!database) return;
+  const snapshot = await getDocs(collection(database, path));
   const chunks: typeof snapshot.docs[] = [];
   for (let start = 0; start < snapshot.docs.length; start += 400) chunks.push(snapshot.docs.slice(start, start + 400));
   for (let start = 0; start < chunks.length; start += 3) {
     await Promise.all(chunks.slice(start, start + 3).map((items) => {
-    const batch = writeBatch(db);
+      const batch = writeBatch(database);
       items.forEach((item) => batch.delete(item.ref));
       return batch.commit();
     }));
@@ -33,12 +35,27 @@ async function clearCollection(path: string) {
 
 async function clearUserData(uid: string, onProgress?: (stage: string) => void) {
   if (!db) throw new Error('Firebase is not configured for this build.');
-  if (storage) {
+  onProgress?.('Checking your profile photo…');
+  const photo = await getDocFromServer(doc(db, 'users', uid, 'profilePhotos', 'current'));
+  // Google avatars and accounts without an uploaded photo have no Storage file.
+  if (photo.exists()) {
+    if (!storage) throw new Error('Photo storage is unavailable. Your account has not been deleted.');
     onProgress?.('Removing your profile photo…');
+    const previousRetryTime = storage.maxOperationRetryTime;
+    storage.maxOperationRetryTime = 15_000;
     try {
       await deleteObject(ref(storage, `users/${uid}/profile/profile-image`));
     } catch (error) {
-      if ((error as { code?: string }).code !== 'storage/object-not-found') throw error;
+      const code = (error as { code?: string }).code;
+      if (code === 'storage/retry-limit-exceeded') {
+        throw new Error('Could not reach photo storage. Your account has not been deleted. Check your connection and try again.');
+      }
+      if (code === 'storage/unauthorized') {
+        throw new Error('Photo storage denied deletion. Your account has not been deleted. Please contact support.');
+      }
+      if (code !== 'storage/object-not-found') throw error;
+    } finally {
+      storage.maxOperationRetryTime = previousRetryTime;
     }
   }
   // Active workout set logs are the only nested collection in the current data model.
