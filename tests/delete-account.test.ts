@@ -34,6 +34,7 @@ function setup({ photo = false, storageCode = '', authCode = '', google = false 
       ref: (_storage: unknown, path: string) => path,
       deleteObject: async (path: string) => { assert.equal(storage.maxOperationRetryTime, 15_000); calls.push(`photo-delete:${path}`); if (storageCode) throw { code: storageCode }; },
     },
+    '../billing': { billingRequest: async () => { calls.push('cancel-subscription'); } },
     './client': { auth: {}, db: {}, storage },
     './googleSignIn': { reauthenticateGoogleUser: async () => { calls.push('reauth-google'); } },
   };
@@ -67,4 +68,9 @@ test('failed reauthentication leaves every record untouched', async () => {
   const flow = setup({ authCode: 'auth/invalid-credential' });
   await assert.rejects(flow.run, /password didn’t match/);
   assert.deepEqual(flow.calls, ['reauth']);
+});
+test('subscription cancellation runs after reauthentication and before any account data removal',async()=>{
+ const flow=setup();await flow.run();
+ assert.ok(flow.calls.indexOf('cancel-subscription')>flow.calls.indexOf('reauth'));
+ assert.ok(flow.calls.indexOf('cancel-subscription')<flow.calls.findIndex(call=>call.startsWith('photo-read:')));
 });

@@ -1,14 +1,40 @@
 rules_version = '2';
+// User data is private. Billing accounts/events/subscription mappings and split
+// quotas are server-owned. Split documents contain clientId, data and position;
+// settings/history/activeWorkouts/profilePhotos retain their existing models.
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Curated catalog: signed-in clients can fetch this published document.
-    // Publishing and editing templates require trusted administrative access.
+    function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function validUser(data, uid) { return !('userId' in data) || data.userId == uid; }
+    function validSplit(data) {
+      return data.keys().hasAll(['clientId','data','position']) &&
+        data.clientId is string && data.data is map && data.data.id == data.clientId &&
+        data.data.name is string && data.data.moves is list && data.position is number;
+    }
+    function validPrivate(data, uid) { return data is map && validUser(data, uid); }
     match /planTemplates/{templateId} {
       allow get: if request.auth != null && templateId == 'catalog-v1' && resource.data.published == true;
       allow list, write: if false;
     }
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    match /billingAccounts/{uid} { allow read: if owner(uid); allow write: if false; }
+    match /users/{uid} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid) && validUser(request.resource.data, uid);
+      match /splits/{id} {
+        // All creation passes through the authenticated quota transaction.
+        allow create: if false;
+        allow read, delete: if owner(uid);
+        allow update: if owner(uid) && validSplit(request.resource.data) &&
+          request.resource.data.clientId == resource.data.clientId;
+      }
+      match /{kind}/{id} {
+        allow read, delete: if owner(uid) && kind in ['settings','history','activeWorkouts','profilePhotos'];
+        allow create, update: if owner(uid) && kind in ['settings','history','activeWorkouts','profilePhotos'] && validPrivate(request.resource.data, uid);
+      }
+      match /activeWorkouts/{workout}/sets/{set} {
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && validPrivate(request.resource.data, uid);
+      }
     }
   }
 }

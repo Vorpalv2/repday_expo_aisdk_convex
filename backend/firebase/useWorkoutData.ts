@@ -1,3 +1,4 @@
+import { billingRequest } from '../billing';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   collection,
@@ -20,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from './client';
+import { stableSerialize } from '../../lib/stableSerialize';
 import type {
   ActiveWorkoutSnapshot,
   WorkoutBackendBindings,
@@ -56,6 +58,14 @@ const stripWorkingSets = (working: any) => ({
 const setDocumentId = (moveIndex: number, setIndex: number) => `${moveIndex}_${setIndex}`;
 const splitDocumentId = (clientId: string) => encodeURIComponent(clientId);
 const historyDocumentId = (clientId: string) => encodeURIComponent(clientId);
+const savedSettingsKeys = [
+  'initialized', 'weeklyPlan', 'restDays', 'autoRestNextDate', 'focusDraft',
+  'selectedSessionId', 'country', 'timeZone', 'theme', 'activityDefaultCollapsed',
+  'trainingGoal', 'restPreferenceSeconds', 'weightUnit', 'remindersEnabled',
+] as const;
+const settingsSignature = (settings: Record<string, any>) => stableSerialize(
+  Object.fromEntries(savedSettingsKeys.map((key) => [key, settings[key]])),
+);
 
 export type UseWorkoutDataOptions = {
   isAuthenticated: boolean;
@@ -78,6 +88,8 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
   const olderHistory = useRef<WorkoutRecord[]>([]);
   const activeParentPayload = useRef<string | null>(null);
   const activeSetRows = useRef<any[]>([]);
+  const remoteSettingsSignature = useRef<{ uid: string; value: string } | null>(null);
+  const settingsWritesInFlight = useRef(new Set<string>());
 
   const withActiveSets = (working: any, rows: any[]) => {
     if (!working) return null;
@@ -100,12 +112,13 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
       setRemoteHistoryResults([]);
       setRemoteHistoryStatus('Exhausted');
       setRemoteActiveWorkout(null);
-      setProfilePhotoUrl(null);
       setRemoteDataError(null);
       historyCursor.current = null;
       olderHistory.current = [];
       activeParentPayload.current = null;
       activeSetRows.current = [];
+      remoteSettingsSignature.current = null;
+      settingsWritesInFlight.current.clear();
       return;
     }
 
@@ -119,13 +132,15 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     const unsubscribers = [
       onSnapshot(settingsRef, (snapshot) => {
         const authUser = auth?.currentUser;
-        setRemoteSettings({
+        const settings = {
           ...makeInitialSettings(uid),
           ...(snapshot.exists() ? snapshot.data() : {}),
           userId: uid,
           user: { name: authUser?.displayName ?? null, email: authUser?.email ?? null },
           initialized: snapshot.exists() && Boolean(snapshot.data().initialized ?? true),
-        } as WorkoutSettings);
+        } as WorkoutSettings;
+        remoteSettingsSignature.current = { uid, value: settingsSignature(settings) };
+        setRemoteSettings(settings);
       }, (error) => { console.warn('[Repday] Settings listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
       onSnapshot(query(splitsRef, orderBy('position', 'asc')), (snapshot) => {
         const sessions = snapshot.docs.map((item) => {
@@ -203,20 +218,30 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
       }, (error) => { console.warn('[Repday] Active set listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
     ];
 
-    if (tab === 'Profile') {
-      const photoRef = doc(db, 'users', uid, 'profilePhotos', 'current');
-      unsubscribers.push(onSnapshot(photoRef, (snapshot) => {
-        const uploadedPhotoUrl = snapshot.exists() ? String(snapshot.data().downloadURL ?? '') || null : null;
-        setProfilePhotoUrl(uploadedPhotoUrl ?? googlePhotoUrl);
-      }));
-    } else {
-      setProfilePhotoUrl(null);
-    }
-
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [uid, tab, googlePhotoUrl, retryCount]);
+  }, [uid, retryCount]);
+
+  useEffect(() => {
+    if (!uid || !db || tab !== 'Profile') {
+      setProfilePhotoUrl(null);
+      return;
+    }
+
+    const photoRef = doc(db, 'users', uid, 'profilePhotos', 'current');
+    return onSnapshot(
+      photoRef,
+      (snapshot) => {
+        const uploadedPhotoUrl = snapshot.exists() ? String(snapshot.data().downloadURL ?? '') || null : null;
+        setProfilePhotoUrl(uploadedPhotoUrl ?? googlePhotoUrl ?? null);
+      },
+      (error) => {
+        console.warn('[Repday] Profile photo listener failed', error);
+        setProfilePhotoUrl(googlePhotoUrl ?? null);
+      },
+    );
+  }, [uid, tab, googlePhotoUrl]);
 
   const retryRemoteData = useCallback(() => {
     setRemoteDataError(null);
@@ -255,31 +280,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
   const syncSplits = useCallback(async ({ items }: { items: any[] }) => {
     const firestore = db;
     if (!uid || !firestore) return;
-    const ref = collection(firestore, 'users', uid, 'splits');
-    const current = await getDocs(ref);
-    const keep = new Set(items.map((item) => splitDocumentId(String(item.id))));
-    let batch = writeBatch(firestore);
-    let operations = 0;
-    const commitIfFull = async () => {
-      if (operations >= 450) {
-        await batch.commit();
-        batch = writeBatch(firestore);
-        operations = 0;
-      }
-    };
-    for (const row of current.docs) {
-      if (!keep.has(row.id)) {
-        batch.delete(row.ref);
-        operations += 1;
-        await commitIfFull();
-      }
-    }
-    for (const [position, item] of items.entries()) {
-      batch.set(doc(ref, splitDocumentId(String(item.id))), { clientId: String(item.id), data: item, position, updatedAt: Date.now() }, { merge: true });
-      operations += 1;
-      await commitIfFull();
-    }
-    if (operations) await batch.commit();
+    await billingRequest('/api/splits',{items:items.map((item,position)=>({item,position})),replace:true});
   }, [uid]);
 
   const syncHistory = useCallback(async ({ items }: { items: WorkoutRecord[] }) => {
@@ -306,7 +307,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
 
   const upsertSplit = useCallback(({ item, position }: { item: any; position: number }) => {
     if (!uid || !db) return Promise.reject(new Error('Sign in to save workout splits.'));
-    return setDoc(doc(db, 'users', uid, 'splits', splitDocumentId(String(item.id))), { clientId: String(item.id), data: item, position, setTargets: {}, updatedAt: Date.now() });
+    return billingRequest('/api/splits',{items:[{item,position,resetTargets:true}]}).then(()=>undefined);
   }, [uid]);
 
   const appendSplitExercise = useCallback(({ splitId, move }: { splitId: string; move: any }) => {
@@ -352,7 +353,16 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     weightUnit: 'kg' | 'lb'; remindersEnabled: boolean;
   }) => {
     if (!uid || !db) return;
-    await setDoc(doc(db, 'users', uid, 'settings', 'main'), { ...settings, initialized: true, updatedAt: Date.now() }, { merge: true });
+    const value = settingsSignature({ ...settings, initialized: true });
+    const writeKey = `${uid}:${value}`;
+    if (remoteSettingsSignature.current?.uid === uid && remoteSettingsSignature.current.value === value) return;
+    if (settingsWritesInFlight.current.has(writeKey)) return;
+    settingsWritesInFlight.current.add(writeKey);
+    try {
+      await setDoc(doc(db, 'users', uid, 'settings', 'main'), { ...settings, initialized: true, updatedAt: Date.now() }, { merge: true });
+    } finally {
+      settingsWritesInFlight.current.delete(writeKey);
+    }
   }, [uid]);
 
   const saveActiveWorkout = useCallback(async ({ activeWorkout, working, restEndsAt }: {

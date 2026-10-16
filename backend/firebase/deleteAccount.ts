@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
 import { auth, db, storage } from './client';
+import { billingRequest } from '../billing';
 import { reauthenticateGoogleUser } from './googleSignIn';
 
 const USER_COLLECTIONS = ['settings', 'splits', 'history', 'activeWorkouts', 'profilePhotos'] as const;
@@ -90,6 +91,8 @@ export async function deleteFirebaseAccount(user: User, password?: string, onPro
   }
 
   // Reauthenticate before removing anything so a stale session cannot partially erase data.
+  onProgress?.('Checking and cancelling subscriptions…');
+  await billingRequest('/api/billing/delete-account', {});
   onProgress?.('Deleting your Repday data…');
   await clearUserData(user.uid, onProgress);
   await deleteUser(user);

@@ -28,14 +28,42 @@ environment configuration.
 
 ## Current payment status
 
-The intended price is INR 200 per month for the web app. Razorpay is the selected
-provider. The merchant account has not been created yet. No keys or payment plan
-have been configured, and the live app does not charge users.
+The merchant account has completed KYC. Development uses **Test Mode only**,
+with a **₹1/month sandbox plan** (100 paise). Payments are simulated; the intended
+launch price remains ₹200/month. Live billing is not enabled.
 
-Automatic monthly renewal using Razorpay Subscriptions/UPI AutoPay is proposed.
-Confirm the renewal model, paid features, any trial, and cancellation/refund terms
-before enabling a paywall. Verify subscription payment methods on the merchant
-account before promising them to users.
+The selected subscription benefits are AI Coach, Form Inspection, and more than
+six workout splits. Workout tracking and up to six splits remain free.
+
+Local Razorpay test credentials, a sandbox plan, and Firebase server credentials
+are configured. Firebase server authentication and Firestore read access have
+been verified without changing user records. Local checkout, signed verification, webhook processing, cancellation, expiry,
+and feature gates are implemented. Hosted billing configuration and webhook
+registration remain separate deployment steps.
+
+A second source checkpoint includes the OAuth fix:
+`checkpoint/pre-razorpay-with-auth-fix-2026-10-16` (commit `48da9f1`).
+
+## Firebase server credential
+
+The service-account download belongs to project `repday-expo`. Do not commit or
+paste its contents into chat. To configure another local environment:
+
+```sh
+npm run billing:firebase -- /absolute/path/to/service-account.json
+npm run billing:setup
+```
+
+The first command validates the project, copies the credential to the ignored
+`.firebase-admin.local.json`, and sets `FIREBASE_ADMIN_SERVICE_ACCOUNT` in the
+ignored `.env.local`. Both files use owner-only permissions. Download filenames
+matching `*-firebase-adminsdk-*.json` are also excluded from Git. No secret is
+printed. The second command validates or creates the ₹1 monthly Test Mode plan
+and saves a separate webhook signing secret locally.
+
+These local settings do not configure the deployed website. Server credentials
+must be configured separately in the hosted environment; never prefix them with
+`EXPO_PUBLIC_`. Keep the webhook signing secret distinct from the API key secret.
 
 ## Account signup
 
@@ -68,18 +96,100 @@ website; accepting real money requires live activation and Live Mode credentials
 Razorpay's API-key instructions:
 https://razorpay.com/docs/payments/dashboard/account-settings/api-keys/
 
-## Integration work still to do
+## Remaining hosted and live setup
 
-- Create the INR 200 monthly plan in the appropriate Razorpay mode (20000 paise).
-- Build authenticated server endpoints for subscription creation and cancellation.
-- Verify checkout signatures and webhook signatures on the server; never grant
-  access from a client success message alone.
-- Store billing state in a server-controlled location. The existing broad
-  user-owned Firestore write rule must not allow clients to grant themselves
-  paid access.
-- Handle duplicate/retried events, renewal failures, cancellations, and expiry.
-- Add the subscription UI and test the full lifecycle with Test Mode keys.
-- Prepare the pricing and required business/policy pages for live review.
-- Enable live billing only after approval and successful live-readiness checks.
+- Configure hosted server credentials and deploy the new API/client.
+- Deploy the staged security rules and register the Test Mode webhook.
+- Test dashboard-triggered subsequent charges and failed renewal retries.
+- Prepare pricing and business/policy pages before requesting a live launch.
+- Create a separate ₹200 monthly live plan and explicitly revise the current
+  Test Mode-only safeguards when live billing is approved for release.
 
 Subscription documentation: https://razorpay.com/docs/payments/subscriptions/
+
+## Local sandbox test
+
+Run `npm run web -- --port 8081` with `BILLING_ENABLED=true` in the ignored
+local environment. Sign in, open **Profile → Repday Plus**, and choose
+**Try Plus · ₹1/month**. Free feature buttons show a PLUS badge; a verified paid
+subscription removes it. Razorpay Test Mode is enforced in both server and client.
+Use only the public test card details from Razorpay's integration documentation.
+
+A successful authorization alone does not unlock Plus. The server fetches paid
+subscription invoices and grants access through their `billing_end`. Refresh
+subscription status if the invoice arrives just after checkout closes.
+
+## Server data and enforcement
+
+- `billingAccounts/{uid}`: subscription ID, provider status, paid-through time,
+  and cancellation state. Owner may read; only the server writes.
+- `billingSubscriptions/{id}`: server-owned subscription-to-user mapping.
+- `billingEvents/{digest}`: processed webhook IDs for replay protection.
+- `splitQuotas/{uid}`: transaction guard serializing split creation.
+- `users/{uid}/splits/{id}`: normal editable workout data. Creation goes through
+  `POST /api/splits`; existing splits remain readable/editable after expiry.
+
+The server rejects a new split when the resulting free library exceeds six.
+It checks real stored documents in a transaction, including bulk imports and
+onboarding installs. AI Coach verifies access before calling the model. Form
+Inspection checks access before opening the camera; its on-device code remains
+client-side and is not a secure boundary against modified clients.
+
+The checked-in Firestore rules prevent direct client split creation and all
+billing writes. Deploy the new API/client and configure its server environment
+before deploying these rules. The old app still creates splits directly and
+must be refreshed after the rules change. Rules are currently staged locally.
+
+Cancellation stops renewals, retaining already-paid access until its expiry.
+Account deletion cancels the mandate immediately before removing user data.
+Billing audit records are server-owned and may remain after account deletion;
+no secret credentials or card details are stored in user documents.
+
+## Razorpay webhook setup
+
+1. In the **Test Mode** dashboard, open **Account & Settings → Webhooks**.
+2. After deploying the API, use
+   `https://repday.expo.app/api/billing/webhook` as the endpoint.
+3. Set the secret to the same server-side `RAZORPAY_WEBHOOK_SECRET` value.
+   Read it locally; do not paste it into chat.
+4. Enable subscription lifecycle events: authenticated, activated, charged,
+   pending, halted, paused, resumed, cancelled, completed, and updated where
+   available in the dashboard.
+5. Send a dashboard test event, then verify a complete subscription lifecycle.
+
+Razorpay cannot reach localhost directly. A development HTTPS tunnel can forward
+webhooks to `http://localhost:8081/api/billing/webhook`; manual status refresh
+also reconciles canonical invoices while testing locally.
+
+The webhook validates the exact raw-body HMAC with the separate signing secret.
+It fetches canonical Razorpay state, ignores events for superseded subscriptions,
+and commits state and deduplication together. A mapping not ready yet returns an
+error so Razorpay can retry; it does not silently acknowledge a lost payment.
+
+## Deployment order
+
+1. Configure server-only Test Mode keys, plan, webhook secret, Firebase admin
+   JSON, and `BILLING_ENABLED=true` in the hosted environment.
+2. Export and deploy the new web client and API. Check the active deployment.
+3. Deploy `firestore.rules` and verify denied client creates and billing writes.
+4. Configure the Test Mode webhook and test renewals/cancellation/expiry.
+5. Keep Live Mode disabled. A live launch needs a separate ₹200 plan, policy
+   pages and an explicit change to the current test-only safeguard.
+
+## Verification
+
+Local checks on 2026-10-16 include a complete simulated card payment with a
+Razorpay test card, server invoice verification, paid feature access, and saving
+a seventh split. Signed webhook processing, duplicate delivery, invalid HMAC,
+and a concurrent free split-creation race were exercised against the local API.
+
+UI checks covered light, dark and Cyberpunk at 393px, 466px and 1280px widths,
+including removal of PLUS badges with an active entitlement fixture. The actual
+sandbox payment also verified removal of the Coach badge.
+
+Billing tests cover paid invoice matching, signature binding, free quota,
+expiry, cancellation idempotency, superseded events, and cancellation before
+account deletion. Use `npm run test:billing`. Client export checks confirm billing
+secrets are not present in browser assets. Security Rules syntax validation
+passes; production rules deployment and end-to-end rule denial checks remain
+part of hosted rollout. Physical iOS Apple Health launch is still unverified.

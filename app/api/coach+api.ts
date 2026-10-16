@@ -1,3 +1,5 @@
+import { billingUser,billingError } from '../../lib/server/billingAuth';
+import { requirePremium } from '../../lib/server/billing';
 import { generateText } from 'ai';
 import { DEFAULT_AI_COACH_MODEL, isAICoachModelId } from '../../backend/aiModels';
 import { checkAIRequestLimit } from './_lib/aiRateLimit';
@@ -21,6 +23,8 @@ export async function POST(request: Request) {
   if (body.question.length > 1_000) {
     return Response.json({ error: 'Keep your question under 1,000 characters.' }, { status: 413 });
   }
+
+  try { const {uid}=await billingUser(request); await requirePremium(uid); } catch(error) { return billingError(error); }
 
   const rateLimitResponse = await checkAIRequestLimit(request, 'coach');
   if (rateLimitResponse) return rateLimitResponse;

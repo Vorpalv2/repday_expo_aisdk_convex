@@ -309,7 +309,7 @@ Keep billing separate from ordinary editable profile settings.
 
 | Firestore path | What to store | Who writes it |
 | --- | --- | --- |
-| `billingAccounts/{uid}` | Current subscription ID, status, paid-through time, cancellation state | Server |
+| `billingAccounts/{uid}` | Current subscription ID, status, paid-through time, cancellation state, optional manual Plus grant | Server or trusted Firebase administrator |
 | `billingSubscriptions/{subscriptionId}` | The Firebase UID that owns this subscription | Server |
 | `billingEvents/{eventDigest}` | Which webhook deliveries were already handled | Server |
 | `splitQuotas/{uid}` | A revision used to serialize split-creation transactions | Server |
@@ -331,11 +331,11 @@ An **illustrative billing record** looks like this. These IDs are placeholders:
 uses milliseconds. Razorpay's invoice `billing_end` uses seconds, so the server
 converts it by multiplying by 1000.
 
-Do not let the browser write `paidUntil` or a trusted `premium` field. The server
-derives current access using the stored expiry:
+Do not let the browser write `paidUntil` or `manualPlusAccess`. The server
+derives current access from a verified paid period or an administrator's grant:
 
 ```ts
-const premium = typeof paidUntil === 'number' && paidUntil > Date.now();
+const premium = manualPlusAccess === true || (typeof paidUntil === 'number' && paidUntil > Date.now());
 ```
 
 The browser may cache this answer for display, but the server must check it again
@@ -467,6 +467,7 @@ const checkout = new (window as any).Razorpay({
   key: details.keyId,
   subscription_id: details.subscriptionId,
   name: 'Repday Plus',
+  image: 'https://repday.expo.app/icons/repday-login-192.png',
   description: '₹1/month · Test Mode · No real money',
   prefill: { email: details.email },
   handler: async (paymentResponse: Record<string, string>) => {
@@ -486,8 +487,16 @@ the checkout script, not by Firebase.
 
 Repday's centered paywall is in `app/index.tsx` and uses
 `components/SubscriptionPanel.tsx`. It can be dismissed with × or the backdrop.
+The checkout `image` option supplies the login-screen logo. Use a publicly
+reachable HTTPS image URL so Razorpay's checkout frame can load it, including
+when the app is being tested on localhost. Dashboard logo settings are not
+required for this explicitly configured checkout image.
+
 Gold buttons identify Plus features. A PLUS badge appears when unsubscribed and
-disappears after verified activation; the gold styling remains.
+disappears after verified activation; the gold styling remains. Verified, unexpired
+subscribers also see a gold PLUS badge on the loading animation, after their
+account identity and server status are available. The loading background stays
+white; free, expired, unknown, and signed-out states do not show this badge.
 
 Closing checkout is a normal action, not a successful payment. The user stays
 free and can retry. A failed payment should show an error without erasing their
@@ -611,8 +620,12 @@ await requirePremium(uid);
 enabled. An unpaid request receives HTTP 402. Repday's `/api/coach` does this
 before calling the model.
 
-Form Inspection checks `/api/billing/access` before opening the camera. Its
-analysis runs on the device, so a modified client can bypass client-only code.
+Form Inspection checks the account-scoped billing state before opening the camera.
+That state is refreshed on sign-in, every four hours while the app stays open,
+and on foreground when its last successful check is at least four hours old.
+The known paid-through timer turns off access at expiry without a server read
+on every camera press. Its analysis runs on the device, so a modified client
+can bypass client-only code.
 Do not describe downloaded browser code as an unbypassable paid-access boundary.
 
 ### 12.2 Enforce six splits in one transaction
@@ -749,6 +762,34 @@ sending the same delivery twice does not apply it twice.
 
 ## 14. Handle cancellation, expiry, and account deletion
 
+### Manual Plus grants for testers or staff
+
+An owner can grant Plus without starting a Razorpay mandate. This grants the
+same protected features and removes the six-split limit; it does **not** give
+the account Firestore administrator permissions.
+
+1. In Firebase Console, open **Authentication → Users** and copy the intended
+   user's **UID**. Use the UID, not their email address, as the document ID.
+2. Open **Firestore Database → `billingAccounts` → `{uid}`**. Create the
+   document if it does not exist. Add `manualPlusAccess` with the **Boolean**
+   value `true`. Keep the other fields unchanged.
+3. Refresh Repday's subscription status or sign in again. The Plus panel should
+   read “Complimentary” and the Plus badges should disappear.
+4. To remove only the grant, change that field to Boolean `false`. If the user
+   still has a paid subscription, the subscription can continue to provide
+   access until its paid-through date.
+
+The web client cannot write this field. The currently deployed Firestore rules
+have no `billingAccounts` client-write match, and the staged rules explicitly
+deny those writes. The server checks `manualPlusAccess === true` on every paid
+API request and split-creation transaction. A string value such as `"true"`
+does not grant access. Manual grants do not cancel any existing Razorpay
+subscription; cancel a mandate separately if one exists.
+
+This feature is in the local billing implementation. Until that implementation
+is deployed, a grant saved in Firestore affects local development but not the
+hosted Repday app.
+
 ### Cancellation
 
 Authenticate the user, read their subscription ID from the server record, verify
@@ -773,7 +814,12 @@ distinguishes immediate from end-of-cycle cancellation.
 
 ### Expiry and failed renewal
 
-Use the paid-through timestamp on every protected server request. If no later
+Use the paid-through timestamp on every protected server request. The server
+caches the billing account in Redis for up to four hours, capped at that
+timestamp, so an AI Coach message does not normally read Firestore for billing.
+Webhook, checkout, and cancellation updates invalidate the cache. Free and
+complimentary account entries use a five-minute cache. If Redis is unavailable,
+the server reads Firestore directly. If no later
 paid invoice extends it, access expires naturally. No job needs to run at midnight
 to flip a boolean. Repday's UI also refreshes status and updates expired display
 state, but the server remains the authority.
@@ -858,6 +904,32 @@ separate checks; do not mark them completed from the local tests.
 
 **Checkpoint:** record which tests passed, which services were real or mocked,
 and which scenarios still need verification.
+
+### Optional: one-minute access expiry test
+
+For the designated development account, a server administrator can set
+`testAccessDurationSeconds: 60` on its server-owned `billingAccounts/{uid}`
+record. This is an account-specific Test Mode setting, not a browser option.
+Other users retain their normal paid invoice period.
+
+On the first verified paid invoice for a new subscription, the server stores
+`testAccessExpiresAt = now + 60000` and caps `paidUntil` at that deadline.
+Unpaid checkout does not start the timer. Reloads, status refreshes, duplicate
+webhooks, and later reconciliation reuse the stored deadline; they cannot
+restart the minute. A newly created subscription clears the previous test
+expiry before its own paid verification starts a new minute.
+
+The subscription card labels the one-minute test and shows its expiry time.
+To test: complete a sandbox purchase, enter AI Coach, leave the page open for
+more than 60 seconds, then try sending another question. PLUS badges should
+return and the next paid request should be blocked without a page reload.
+Opening Form Inspection after expiry is also blocked. A camera session already
+running locally is still not automatically terminated by access expiry.
+
+This caps Repday access only. Razorpay's plan remains monthly; it does not become
+a one-minute billing plan. After testing, cancel the sandbox subscription and
+reset the account to Free if you want a fresh purchase, or ask the administrator
+to disable the account-specific test setting and reconcile normal billing.
 
 ## 16. Deploy the sandbox integration safely
 
@@ -979,11 +1051,12 @@ These paths refer to the local implementation until it is published:
 | `app/api/billing/webhook+api.ts` | Signed lifecycle events and reconciliation |
 | `app/api/billing/cancel+api.ts` | User-requested cancellation |
 | `app/api/billing/delete-account+api.ts` | Mandate cancellation before account deletion |
-| `app/api/billing/access+api.ts` | Access check before feature entry |
+| `app/api/billing/access+api.ts` | Optional explicit access-check endpoint |
 | `app/api/splits+api.ts` | Authenticated split saving |
 | `app/api/coach+api.ts` | Paid access before an AI call |
 | `backend/billing.ts` | Browser requests and lazy-loaded checkout |
 | `hooks/useBilling.ts` | Account-scoped display state and expiry refresh |
+| `lib/server/billingCache.ts` | Short-lived server cache for entitlement checks |
 | `components/SubscriptionPanel.tsx` | Offer, checkout action, status and cancellation UI |
 | `app/index.tsx` | Centered paywall and gold feature entry points |
 | `firestore.rules` | Owner access and server-only billing/split creation |

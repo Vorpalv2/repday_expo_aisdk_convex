@@ -15,7 +15,10 @@
     "update:prod": "npx eas-cli@latest update --channel production --environment production",
     "typecheck": "tsc --noEmit",
     "push:keys": "node scripts/generate-push-keys.mjs",
-    "test:push": "tsx --test tests/web-push.test.ts"
+    "test:push": "tsx --test tests/web-push.test.ts",
+    "billing:setup": "node scripts/setup-razorpay-sandbox.mjs",
+    "billing:firebase": "node scripts/setup-firebase-admin.mjs",
+    "test:billing": "tsx --test tests/billing.test.ts tests/billing-cache.test.ts tests/billing-lifecycle.test.ts tests/delete-account.test.ts"
   },
   "dependencies": {
     "@block65/webcrypto-web-push": "^2.0.0",

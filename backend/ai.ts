@@ -5,7 +5,7 @@ import { auth } from './firebase/client';
 
 export { AI_COACH_MODELS, type AICoachModelId } from './aiModels';
 
-function getApiBaseUrl() {
+export function getApiBaseUrl() {
   if (Platform.OS === 'web') return '';
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
   if (__DEV__ && host) return `http://${host}:8081`;
