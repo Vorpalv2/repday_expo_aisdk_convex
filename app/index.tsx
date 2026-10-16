@@ -102,6 +102,7 @@ export default function HomeScreen(){
  const [billingWaitExpired,setBillingWaitExpired]=useState(false);
  const [entryRoute,setEntryRoute]=useState<'auth'|'onboarding'|'returningLoading'|'newUserLoading'|'app'|null>(null);
  const [welcomeMessage,setWelcomeMessage]=useState<string|null>(null);
+ const finishEntryLoading=useCallback(()=>setEntryRoute('app'),[]);
  useEffect(()=>{
   const timer=setTimeout(()=>setMinimumLoadingElapsed(true),3000);
   return()=>clearTimeout(timer);
@@ -129,7 +130,7 @@ export default function HomeScreen(){
  if(!isAuthenticated)return <SignInScreen onAuthAttempt={()=>setEntryRoute('auth')} onExistingUser={name=>{setWelcomeMessage(`Welcome back, ${name||accountName}!`);setEntryRoute('returningLoading');}} onNewUser={name=>{setWelcomeMessage(`Welcome, ${name||accountName}!`);setEntryRoute('onboarding');}}/>;
  if(entryRoute===null)return <LoadingScreen status={billing.status}/>;
  if(entryRoute==='auth'||entryRoute==='onboarding')return <SignInScreen mode={entryRoute} onAuthAttempt={()=>setEntryRoute('auth')} onExistingUser={name=>{setWelcomeMessage(`Welcome back, ${name||accountName}!`);setEntryRoute('returningLoading');}} onNewUser={name=>{setWelcomeMessage(`Welcome, ${name||accountName}!`);setEntryRoute('onboarding');}} onOnboardingComplete={()=>setEntryRoute('newUserLoading')}/>;
- if(entryRoute==='returningLoading'||entryRoute==='newUserLoading')return <LoadingScreen status={billing.status} onComplete={()=>setEntryRoute('app')}/>;
+ if(entryRoute==='returningLoading'||entryRoute==='newUserLoading')return <LoadingScreen status={billing.status} onComplete={finishEntryLoading}/>;
  return <WorkoutApp welcomeMessage={welcomeMessage} billing={billing}/>;
 }
 
@@ -152,9 +153,13 @@ function LoadingScreen({onComplete,status}:{onComplete?:()=>void;status:BillingS
  const row=Math.floor(frame/4);
  useEffect(()=>{
   const timer=setInterval(()=>setFrame(current=>(current+1)%8),145);
-  const complete=onComplete?setTimeout(onComplete,3000):null;
-  return()=>{clearInterval(timer);if(complete)clearTimeout(complete);};
+  return()=>clearInterval(timer);
  },[]);
+ useEffect(()=>{
+  if(!onComplete)return;
+  const complete=setTimeout(onComplete,3000);
+  return()=>clearTimeout(complete);
+ },[onComplete]);
  return <SafeAreaView style={{flex:1,backgroundColor:'#fff',alignItems:'center',justifyContent:'center'}}><StatusBar style="dark"/>
   <View accessibilityRole="image" accessibilityLabel={showPlus?'Repday Plus loading animation':'Repday loading animation'} style={{width:frameWidth,height:frameHeight}}>
    {status?<View style={{width:frameWidth,height:frameHeight,overflow:'hidden'}}>
