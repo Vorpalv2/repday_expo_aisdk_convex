@@ -31,6 +31,7 @@ const makeInitialSettings = (uid: string): WorkoutSettings => ({
   userId: uid,
   initialized: false,
   weeklyPlan: {},
+  restDays: {},
   focusDraft: null,
   selectedSessionId: null,
   country: 'India',
@@ -338,7 +339,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
   }, [uid]);
 
   const saveSettings = useCallback(async (settings: {
-    weeklyPlan: Record<number, string | null>; focusDraft: any; selectedSessionId: string | null;
+    weeklyPlan: Record<number, string | null>; restDays: Record<string, boolean>; focusDraft: any; selectedSessionId: string | null;
     country: string; timeZone: string; theme: 'light' | 'dark' | 'cyberpunk'; activityDefaultCollapsed: boolean;
     trainingGoal: 'strength' | 'muscle' | 'fitness' | 'endurance'; restPreferenceSeconds: 60 | 90 | 120 | 180;
     weightUnit: 'kg' | 'lb'; remindersEnabled: boolean;
