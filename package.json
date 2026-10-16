@@ -13,12 +13,16 @@
     "deploy:web:prod": "npx eas-cli@latest env:exec production 'npm run export:web' && npx eas-cli@latest deploy --environment production --prod",
     "update:preview": "npx eas-cli@latest update --channel preview --environment production",
     "update:prod": "npx eas-cli@latest update --channel production --environment production",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "push:keys": "node scripts/generate-push-keys.mjs",
+    "test:push": "tsx --test tests/web-push.test.ts"
   },
   "dependencies": {
+    "@block65/webcrypto-web-push": "^2.0.0",
     "@expo/ui": "^57.0.22",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-google-signin/google-signin": "^16.1.5",
+    "@upstash/qstash": "^2.12.0",
     "@upstash/ratelimit": "^2.2.0",
     "@upstash/redis": "^1.39.0",
     "ai": "^7.0.137",
@@ -48,6 +52,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.0",
+    "tsx": "^4.23.15",
     "typescript": "~5.9.2"
   },
   "expo": {

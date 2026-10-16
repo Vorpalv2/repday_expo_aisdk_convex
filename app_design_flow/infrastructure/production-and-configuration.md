@@ -45,7 +45,7 @@ The API route also reads Firebase's public web API key to verify an ID token wit
 
 `firestore.rules` allows a signed-in user to read/write only under `users/{theirUid}`. `storage.rules` applies the same owner check and constrains profile image size/type. `firebase.json` points Firebase CLI to these rules and configures Email/Password and Google sign-in. Updating Firebase rules/provider settings is a Firebase deployment/configuration action separate from deploying the EAS web/API app.
 
-Production secrets are configured in EAS project environment variables with secret visibility. Never commit `.env.local` or secret values. Rate-limit thresholds and failure behavior are documented in [AI request rate limiting](<../system design/ai-rate-limiting.md>).
+Production server credentials for EAS Hosting are configured in EAS project environment variables with **Sensitive** visibility. Hosting does not support the **Secret** visibility type. Never commit `.env.local` or secret values. Rate-limit thresholds and failure behavior are documented in [AI request rate limiting](<../system design/ai-rate-limiting.md>).
 
 ## Source files
 

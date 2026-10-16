@@ -110,3 +110,9 @@ The browser uses Firebase's web authentication persistence. Native builds initia
 - `backend/useWorkoutData.ts` is the stable hook import used by screens and binds to Firebase on this branch.
 
 See [`backend/README.md`](backend/README.md) for the adapter boundary and data layout.
+
+## Web rest notifications
+
+Web Push setup and verification are documented in [docs/web-push.md](docs/web-push.md). Enable it with server-side VAPID and QStash configuration; users opt in from the workout screen or Profile.
+
+See [docs/qstash.md](docs/qstash.md) for how delayed jobs, signed callbacks, cancellation and retries work.
