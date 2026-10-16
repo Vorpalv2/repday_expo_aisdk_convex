@@ -1,6 +1,25 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
+// Loading always uses the light artwork canvas, including the browser safe areas.
+export function useWhiteLoadingChrome() {
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const htmlColor = document.documentElement.style.backgroundColor;
+    const bodyColor = document.body.style.backgroundColor;
+    const theme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    const themeColor = theme?.content;
+    document.documentElement.style.backgroundColor = '#fff';
+    document.body.style.backgroundColor = '#fff';
+    if (theme) theme.content = '#ffffff';
+    return () => {
+      document.documentElement.style.backgroundColor = htmlColor;
+      document.body.style.backgroundColor = bodyColor;
+      if (theme && themeColor !== undefined) theme.content = themeColor;
+    };
+  }, []);
+}
+
 // Match browser/PWA chrome and the overscroll canvas to the AMOLED app surface.
 // Restore the previous values on leaving dark mode, preserving other themes.
 export function useDarkBrowserChrome(dark: boolean) {
