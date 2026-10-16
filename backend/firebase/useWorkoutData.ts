@@ -32,6 +32,7 @@ const makeInitialSettings = (uid: string): WorkoutSettings => ({
   initialized: false,
   weeklyPlan: {},
   restDays: {},
+  autoRestNextDate: null,
   focusDraft: null,
   selectedSessionId: null,
   country: 'India',
@@ -229,20 +230,26 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
   const loadMoreHistory = useCallback(async (count: number) => {
     if (!uid || !db || !historyCursor.current || remoteHistoryStatus !== 'CanLoadMore') return;
     setRemoteHistoryStatus('LoadingMore');
-    const next = await getDocs(query(
-      collection(db, 'users', uid, 'history'),
-      orderBy('startedAt', 'desc'),
-      startAfter(historyCursor.current),
-      limit(count),
-    ));
-    const page = next.docs.map((item) => item.data().data as WorkoutRecord);
-    olderHistory.current = [...olderHistory.current, ...page];
-    historyCursor.current = next.docs.at(-1) ?? historyCursor.current;
-    setRemoteHistoryResults((current) => {
-      const seen = new Set(current.map((item) => item.id));
-      return [...current, ...page.filter((item) => !seen.has(item.id))];
-    });
-    setRemoteHistoryStatus(next.size < count ? 'Exhausted' : 'CanLoadMore');
+    try {
+      const next = await getDocs(query(
+        collection(db, 'users', uid, 'history'),
+        orderBy('startedAt', 'desc'),
+        startAfter(historyCursor.current),
+        limit(count),
+      ));
+      const page = next.docs.map((item) => item.data().data as WorkoutRecord);
+      olderHistory.current = [...olderHistory.current, ...page];
+      historyCursor.current = next.docs.at(-1) ?? historyCursor.current;
+      setRemoteHistoryResults((current) => {
+        const seen = new Set(current.map((item) => item.id));
+        return [...current, ...page.filter((item) => !seen.has(item.id))];
+      });
+      setRemoteHistoryStatus(next.size < count ? 'Exhausted' : 'CanLoadMore');
+    } catch (error) {
+      console.warn('[Repday] Older history failed', error);
+      setRemoteHistoryStatus('CanLoadMore');
+      setRemoteDataError('Could not load older workout history. Check your connection and try again.');
+    }
   }, [uid, remoteHistoryStatus]);
 
   const syncSplits = useCallback(async ({ items }: { items: any[] }) => {
@@ -339,7 +346,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
   }, [uid]);
 
   const saveSettings = useCallback(async (settings: {
-    weeklyPlan: Record<number, string | null>; restDays: Record<string, boolean>; focusDraft: any; selectedSessionId: string | null;
+    weeklyPlan: Record<number, string | null>; restDays: Record<string, boolean | 'auto'>; autoRestNextDate: string | null; focusDraft: any; selectedSessionId: string | null;
     country: string; timeZone: string; theme: 'light' | 'dark' | 'cyberpunk'; activityDefaultCollapsed: boolean;
     trainingGoal: 'strength' | 'muscle' | 'fitness' | 'endurance'; restPreferenceSeconds: 60 | 90 | 120 | 180;
     weightUnit: 'kg' | 'lb'; remindersEnabled: boolean;

@@ -56,7 +56,8 @@ export type WorkoutSettings = {
   user?: { name?: string | null; email?: string | null } | null;
   initialized?: boolean;
   weeklyPlan?: Record<number, string | null>;
-  restDays?: Record<string, boolean>;
+  restDays?: Record<string, boolean | 'auto'>;
+  autoRestNextDate?: string | null;
   focusDraft?: FocusDraft | null;
   selectedSessionId?: string | null;
   country?: string;
@@ -101,7 +102,7 @@ export interface WorkoutBackendBindings {
   deleteSplit: (args: { clientId: string }) => Promise<unknown>;
   reorderSplitPositions: (args: { clientIds: string[] }) => Promise<unknown>;
   saveSettings: (args: {
-    weeklyPlan: Record<number, string | null>; restDays: Record<string, boolean>;
+    weeklyPlan: Record<number, string | null>; restDays: Record<string, boolean | 'auto'>; autoRestNextDate: string | null;
     focusDraft: FocusDraft | null;
     selectedSessionId: string | null;
     country: string;

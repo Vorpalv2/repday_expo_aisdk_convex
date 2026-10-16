@@ -19,3 +19,34 @@ test('date boundaries use the account time zone', () => {
   assert.equal(restDayKey(instant, 'America/New_York'), '2026-10-15');
   assert.equal(isRestDay(instant, 'Asia/Kolkata', {4: null}, {}), true);
 });
+
+test('automatic rest fills missed dates, skipping workouts and manual choices', async () => {
+  const { fillAutomaticRestDays } = await import('../lib/restDays');
+  const original = { '2026-10-12': true, '2026-10-13': false };
+  const result = fillAutomaticRestDays({today:'2026-10-16',nextDate:'2026-10-10',restDays:original,completedDates:new Set(['2026-10-11']),activeDate:null});
+  assert.deepEqual(result.restDays, {'2026-10-10':'auto','2026-10-12':true,'2026-10-13':false,'2026-10-14':'auto','2026-10-15':'auto'});
+  assert.equal(result.nextDate,'2026-10-16');
+  assert.deepEqual(original, {'2026-10-12':true,'2026-10-13':false});
+  assert.equal(isRestDay(new Date('2026-10-15T08:00:00Z'),'Asia/Kolkata',{},result.restDays),true);
+});
+
+test('unfinished workout blocks processing until completed or discarded', async () => {
+  const { fillAutomaticRestDays } = await import('../lib/restDays');
+  const args={today:'2026-10-16',nextDate:'2026-10-14',restDays:{},completedDates:new Set<string>(),activeDate:'2026-10-14'};
+  const protectedResult=fillAutomaticRestDays(args);
+  assert.deepEqual(protectedResult,{restDays:{},nextDate:'2026-10-14'});
+  const finished=fillAutomaticRestDays({...args,activeDate:null,completedDates:new Set(['2026-10-14'])});
+  assert.deepEqual(finished.restDays,{'2026-10-15':'auto'});
+  const discarded=fillAutomaticRestDays({...args,activeDate:null});
+  assert.deepEqual(discarded.restDays,{'2026-10-14':'auto','2026-10-15':'auto'});
+});
+
+test('first use checks yesterday only, midnight advances and repeated checks do nothing', async () => {
+  const { fillAutomaticRestDays } = await import('../lib/restDays');
+  const first=fillAutomaticRestDays({today:'2026-11-01',nextDate:null,restDays:{},completedDates:new Set<string>(),activeDate:null});
+  assert.deepEqual(first,{restDays:{'2026-10-31':'auto'},nextDate:'2026-11-01'});
+  const same=fillAutomaticRestDays({...first,today:'2026-11-01',completedDates:new Set<string>(),activeDate:null});
+  assert.equal(same.restDays,first.restDays);
+  const next=fillAutomaticRestDays({...first,today:'2026-11-02',completedDates:new Set<string>(),activeDate:null});
+  assert.deepEqual(next.restDays,{'2026-10-31':'auto','2026-11-01':'auto'});
+});
