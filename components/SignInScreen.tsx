@@ -3,7 +3,9 @@ import { ActivityIndicator, Animated, Dimensions, KeyboardAvoidingView, Platform
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image as ExpoImage } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDarkBrowserChrome } from '../lib/useDarkBrowserChrome';
 import { useBackendAuth } from '../backend/BackendProvider';
 import { TrainingPlanBuilder } from './TrainingPlanBuilder';
 import { installTrainingPlan } from '../backend/firebase/trainingPlans';
@@ -64,7 +66,7 @@ const STEPS = [
 type ThemeId = OnboardingPreferences['theme'];
 const PALETTES: Record<ThemeId, { bg: string; ink: string; muted: string; blue: string; surface: string; soft: string; border: string; buttonText: string }> = {
   light: { bg: '#fff', ink: '#17191d', muted: '#818994', blue: '#3478f6', surface: '#fff', soft: '#f2f6fc', border: '#e5eaf1', buttonText: '#fff' },
-  dark: { bg: '#0c1016', ink: '#f3f5f8', muted: '#9da8b5', blue: '#78aaff', surface: '#151c25', soft: '#202a36', border: '#303b49', buttonText: '#111820' },
+  dark: { bg: '#000000', ink: '#f3f5f8', muted: '#9da8b5', blue: '#78aaff', surface: '#151c25', soft: '#202a36', border: '#303b49', buttonText: '#111820' },
   cyberpunk: { bg: '#f5dc42', ink: '#0754bd', muted: '#315f9e', blue: '#0754bd', surface: '#fff1a1', soft: '#f1d443', border: '#d2b927', buttonText: '#ffe957' },
 };
 
@@ -116,6 +118,7 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
   const lastStep = STEPS.length - 1;
   const isAccountStep = mode === 'auth';
   const palette = PALETTES[preferences.theme];
+  useDarkBrowserChrome(preferences.theme==='dark');
   const pageWidth = Dimensions.get('window').width;
   const currentStep = STEPS[Math.min(step, STEPS.length - 1)];
 
@@ -261,12 +264,13 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
     }
   };
 
-  if (mode === 'onboarding' && preferencesLoaded && currentStep.key === 'plan') return <SafeAreaView style={[styles.safe,{backgroundColor:palette.bg}]} edges={['top','bottom']}><TrainingPlanBuilder draftKey={auth?.currentUser?`repday.planDraft.${auth.currentUser.uid}`:undefined} goal={preferences.trainingGoal} restSeconds={preferences.restPreferenceSeconds} palette={{bg:palette.bg,ink:palette.ink,muted:palette.muted,blue:palette.blue,surface:palette.surface,soft:palette.soft,border:palette.border}} onCancel={()=>goTo(step-1)} onSkip={()=>finishOnboarding()} onUse={async plan=>{await installTrainingPlan(plan,0,preferences.timeZone);await finishOnboarding({...preferences,trainingGoal:plan.preferences.goal});}}/></SafeAreaView>;
+  if (mode === 'onboarding' && preferencesLoaded && currentStep.key === 'plan') return <SafeAreaView style={[styles.safe,{backgroundColor:palette.bg}]} edges={['top','bottom']}><StatusBar style={preferences.theme==='dark'?'light':'dark'}/><TrainingPlanBuilder draftKey={auth?.currentUser?`repday.planDraft.${auth.currentUser.uid}`:undefined} goal={preferences.trainingGoal} restSeconds={preferences.restPreferenceSeconds} palette={{bg:palette.bg,ink:palette.ink,muted:palette.muted,blue:palette.blue,surface:palette.surface,soft:palette.soft,border:palette.border}} onCancel={()=>goTo(step-1)} onSkip={()=>finishOnboarding()} onUse={async plan=>{await installTrainingPlan(plan,0,preferences.timeZone);await finishOnboarding({...preferences,trainingGoal:plan.preferences.goal});}}/></SafeAreaView>;
 
-  if (onboardingComplete === null) return <SafeAreaView style={[styles.safe, { backgroundColor: palette.bg }]}><View style={styles.center}><ActivityIndicator color={palette.blue} /></View></SafeAreaView>;
+  if (onboardingComplete === null) return <SafeAreaView style={[styles.safe, { backgroundColor: palette.bg }]}><StatusBar style={preferences.theme==='dark'?'light':'dark'}/><View style={styles.center}><ActivityIndicator color={palette.blue} /></View></SafeAreaView>;
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.bg }]} edges={['top', 'bottom']}>
+      <StatusBar style={preferences.theme==='dark'?'light':'dark'}/>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.shell}>
           {!isAccountStep ? <>
