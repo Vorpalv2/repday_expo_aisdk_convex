@@ -5,9 +5,15 @@ export default function Root({ children }: PropsWithChildren) {
   return <html lang="en"><head>
     <meta charSet="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="application-name" content="Repday" />
+    <meta name="apple-mobile-web-app-title" content="Repday" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#3478f6" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/icons/repday-180.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/repday-login-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/repday-login-180.png" />
     <ScrollViewStyleReset />
   </head><body>{children}</body></html>;
 }

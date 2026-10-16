@@ -8,7 +8,8 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "web": {
-      "output": "server"
+      "output": "server",
+      "favicon": "./public/icons/repday-login-512.png"
     },
     "splash": {
       "backgroundColor": "#eaf3fb"

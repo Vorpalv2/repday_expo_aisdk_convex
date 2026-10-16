@@ -106,6 +106,7 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
   const [flow, setFlow] = useState<'signIn' | 'signUp'>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [focusedInput, setFocusedInput] = useState<'email' | 'password' | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
@@ -298,10 +299,12 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
               <LoadingMascot width={Math.min(158, pageWidth * 0.39)} />
               <Text style={[styles.authTitle, { color: palette.ink }]}>The Next Chapter</Text>
               <View style={styles.form}>
+                <View style={styles.fields}>
                 <Text style={[styles.label, { color: palette.muted }]}>EMAIL</Text>
-                <TextInput value={email} onChangeText={setEmail} style={[styles.input, { color: palette.ink, backgroundColor: palette.surface, borderColor: palette.border }]} placeholder="you@example.com" placeholderTextColor={palette.muted} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress" returnKeyType="next" />
+                <TextInput value={email} onChangeText={setEmail} onFocus={() => setFocusedInput('email')} onBlur={() => setFocusedInput(current => current === 'email' ? null : current)} style={[styles.input, { color: palette.ink, backgroundColor: palette.surface, borderColor: focusedInput === 'email' ? '#000' : palette.border }, Platform.OS === 'web' && { outlineStyle: 'none' }]} placeholder="you@example.com" placeholderTextColor={palette.muted} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress" returnKeyType="next" />
                 <Text style={[styles.label, { color: palette.muted }]}>PASSWORD</Text>
-                <TextInput value={password} onChangeText={setPassword} style={[styles.input, { color: palette.ink, backgroundColor: palette.surface, borderColor: palette.border }]} placeholder="At least 8 characters" placeholderTextColor={palette.muted} secureTextEntry textContentType={flow === 'signIn' ? 'password' : 'newPassword'} onSubmitEditing={submit} returnKeyType="done" />
+                <TextInput value={password} onChangeText={setPassword} onFocus={() => setFocusedInput('password')} onBlur={() => setFocusedInput(current => current === 'password' ? null : current)} style={[styles.input, { color: palette.ink, backgroundColor: palette.surface, borderColor: focusedInput === 'password' ? '#000' : palette.border }, Platform.OS === 'web' && { outlineStyle: 'none' }]} placeholder="At least 8 characters" placeholderTextColor={palette.muted} secureTextEntry textContentType={flow === 'signIn' ? 'password' : 'newPassword'} onSubmitEditing={submit} returnKeyType="done" />
+                </View>
                 {!!error && <Text style={styles.error}>{error}</Text>}
                 <Pressable accessibilityRole="button" accessibilityLabel={flow === 'signIn' ? 'Sign in' : 'Create account'} style={[styles.primary, styles.authPrimary, { backgroundColor: palette.ink }, (busy || !email.trim() || !password) && styles.disabled]} onPress={submit} disabled={busy || !email.trim() || !password}>
                   {busy ? <ActivityIndicator color={palette.bg} /> : <><Text style={[styles.primaryText, { color: palette.bg }]}>{flow === 'signIn' ? 'Sign in' : 'Create account'}</Text><Text accessible={false} style={{ position: 'absolute', right: 19, color: palette.bg, fontSize: 21 }}>›</Text></>}
@@ -362,8 +365,9 @@ const styles = StyleSheet.create({
   authTitle: { textAlign: 'center', fontSize: 27, lineHeight: 32, fontWeight: '900', marginTop: 0 },
   authSubtitle: { textAlign: 'center', fontSize: 14, lineHeight: 19, marginTop: 2, marginBottom: 6 },
   form: { width: '100%' },
+  fields: { marginHorizontal: 8 },
   label: { fontSize: 12, lineHeight: 16, fontFamily: Platform.OS === 'android' ? 'sans-serif-condensed' : 'Impact', fontWeight: '900', letterSpacing: 1.2, marginTop: 4, marginBottom: 3 },
-  input: { height: 47, borderRadius: 15, borderWidth: 1, paddingHorizontal: 14, fontSize: 16 },
+  input: { height: 47, borderRadius: 15, borderWidth: 2, minWidth: 0, paddingHorizontal: 14, fontSize: 16 },
   disabled: { opacity: 0.45 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 5 },
   dividerLine: { height: 1, flex: 1 },
