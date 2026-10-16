@@ -5,6 +5,9 @@ import { Image as ExpoImage } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBackendAuth } from '../backend/BackendProvider';
+import { TrainingPlanBuilder } from './TrainingPlanBuilder';
+import { installTrainingPlan } from '../backend/firebase/trainingPlans';
+import { auth } from '../backend/firebase/client';
 
 export type OnboardingPreferences = {
   theme: 'light' | 'dark' | 'cyberpunk';
@@ -55,6 +58,7 @@ const STEPS = [
   { key: 'units', question: 'Which units do you use?', description: 'Your set log and workout summaries will use this unit.', feature: 'Every rep and weight, in your language.', art: 0 },
   { key: 'reminders', question: 'Want a reminder to train?', description: 'Turn reminders on or keep them off for now.', feature: 'Build a routine that fits real life.', art: 5 },
   { key: 'timezone', question: 'Where do you train?', description: 'Set the local time used for your weekly activity and workout history.', feature: 'Your schedule follows your local clock.', art: 3 },
+  { key: 'plan', question: 'Build your starting plan', description: 'A week of workouts matched to you.', feature: 'Your first session, ready to go.', art: 2 },
 ] as const;
 
 type ThemeId = OnboardingPreferences['theme'];
@@ -108,7 +112,7 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
   const [selectingTimeZone, setSelectingTimeZone] = useState(false);
   const slide = useRef(new Animated.Value(0)).current;
   const alpha = useRef(new Animated.Value(1)).current;
-  const lastStep = STEPS.length;
+  const lastStep = STEPS.length - 1;
   const isAccountStep = mode === 'auth';
   const palette = PALETTES[preferences.theme];
   const pageWidth = Dimensions.get('window').width;
@@ -159,11 +163,11 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
     setPreferences((current) => ({ ...current, [key]: value }));
   };
 
-  const finishOnboarding = async () => {
+  const finishOnboarding = async (nextPreferences = preferences) => {
     await AsyncStorage.setItem('repday.onboardingPrefsPendingSync', 'true');
     await AsyncStorage.multiSet([
       ['repday.onboardingComplete', 'true'],
-      ['repday.onboardingPrefs', JSON.stringify(preferences)],
+      ['repday.onboardingPrefs', JSON.stringify(nextPreferences)],
       ['repday.onboardingStep', String(lastStep)],
     ]);
     setOnboardingComplete(true);
@@ -184,6 +188,7 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
           ['repday.onboardingStep', '0'],
           ['repday.onboardingPrefsPendingSync', 'false'],
         ]);
+        await AsyncStorage.setItem('repday.onboardingOwner', auth?.currentUser?.uid ?? '');
         setPreferences(INITIAL_PREFERENCES);
         setStep(0);
         setOnboardingComplete(false);
@@ -210,6 +215,7 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
           ['repday.onboardingStep', '0'],
           ['repday.onboardingPrefsPendingSync', 'false'],
         ]);
+        await AsyncStorage.setItem('repday.onboardingOwner', auth?.currentUser?.uid ?? '');
         setPreferences(INITIAL_PREFERENCES);
         setStep(0);
         setOnboardingComplete(false);
@@ -253,6 +259,8 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
       default: return null;
     }
   };
+
+  if (mode === 'onboarding' && preferencesLoaded && currentStep.key === 'plan') return <SafeAreaView style={[styles.safe,{backgroundColor:palette.bg}]} edges={['top','bottom']}><TrainingPlanBuilder draftKey={auth?.currentUser?`repday.planDraft.${auth.currentUser.uid}`:undefined} goal={preferences.trainingGoal} restSeconds={preferences.restPreferenceSeconds} palette={{bg:palette.bg,ink:palette.ink,muted:palette.muted,blue:palette.blue,surface:palette.surface,soft:palette.soft,border:palette.border}} onCancel={()=>goTo(step-1)} onSkip={()=>finishOnboarding()} onUse={async plan=>{await installTrainingPlan(plan);await finishOnboarding({...preferences,trainingGoal:plan.preferences.goal});}}/></SafeAreaView>;
 
   if (onboardingComplete === null) return <SafeAreaView style={[styles.safe, { backgroundColor: palette.bg }]}><View style={styles.center}><ActivityIndicator color={palette.blue} /></View></SafeAreaView>;
 

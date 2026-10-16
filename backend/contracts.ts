@@ -1,3 +1,4 @@
+import type { PlanPreferences } from '../lib/trainingPlan';
 /** Domain shapes shared by the UI and every backend adapter. */
 export type AuthFlow = 'signIn' | 'signUp';
 export type WorkoutTheme = 'light' | 'dark' | 'cyberpunk';
@@ -55,6 +56,7 @@ export type WorkoutSettings = {
   userId?: string;
   user?: { name?: string | null; email?: string | null } | null;
   initialized?: boolean;
+  guidedPlan?: {id:string;templateId:string;templateVersion:number;preferences:PlanPreferences;createdAt:number};
   weeklyPlan?: Record<number, string | null>;
   restDays?: Record<string, boolean | 'auto'>;
   autoRestNextDate?: string | null;

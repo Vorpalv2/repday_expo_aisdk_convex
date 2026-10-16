@@ -1,0 +1,1104 @@
+{
+  "version": 1,
+  "published": true,
+  "exercises": {
+    "squat-gym": {
+      "id": "1760",
+      "name": "dumbbell goblet squat",
+      "target": "quads",
+      "equipment": "dumbbell",
+      "image": "images/1760-yn8yg1r.jpg",
+      "gif_url": "videos/1760-yn8yg1r.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart, holding a dumbbell vertically against your chest with both hands. Keeping your chest up and core engaged, lower your body down into a squat position by pushing your hips back and bending your knees. Continue lowering until your thighs are parallel to the ground, or as low as you can comfortably go. Pause for a moment at the bottom, then push through your heels to return to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart, holding a dumbbell vertically against your chest with both hands.",
+          "Keeping your chest up and core engaged, lower your body down into a squat position by pushing your hips back and bending your knees.",
+          "Continue lowering until your thighs are parallel to the ground, or as low as you can comfortably go.",
+          "Pause for a moment at the bottom, then push through your heels to return to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "squat-db": {
+      "id": "1760",
+      "name": "dumbbell goblet squat",
+      "target": "quads",
+      "equipment": "dumbbell",
+      "image": "images/1760-yn8yg1r.jpg",
+      "gif_url": "videos/1760-yn8yg1r.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart, holding a dumbbell vertically against your chest with both hands. Keeping your chest up and core engaged, lower your body down into a squat position by pushing your hips back and bending your knees. Continue lowering until your thighs are parallel to the ground, or as low as you can comfortably go. Pause for a moment at the bottom, then push through your heels to return to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart, holding a dumbbell vertically against your chest with both hands.",
+          "Keeping your chest up and core engaged, lower your body down into a squat position by pushing your hips back and bending your knees.",
+          "Continue lowering until your thighs are parallel to the ground, or as low as you can comfortably go.",
+          "Pause for a moment at the bottom, then push through your heels to return to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "squat-home": {
+      "id": "1685",
+      "name": "squat to overhead reach",
+      "target": "quads",
+      "equipment": "body weight",
+      "image": "images/1685-QChZi3x.jpg",
+      "gif_url": "videos/1685-QChZi3x.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart and toes slightly turned out. Lower your body down into a squat position by bending your knees and pushing your hips back. As you come up from the squat, extend your arms overhead, reaching towards the ceiling. Return to the starting position by lowering your arms and bending your knees to squat down again. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart and toes slightly turned out.",
+          "Lower your body down into a squat position by bending your knees and pushing your hips back.",
+          "As you come up from the squat, extend your arms overhead, reaching towards the ceiling.",
+          "Return to the starting position by lowering your arms and bending your knees to squat down again.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "chest-gym": {
+      "id": "0577",
+      "name": "lever chest press",
+      "target": "pectorals",
+      "equipment": "leverage machine",
+      "image": "images/0577-T0yTjgW.jpg",
+      "gif_url": "videos/0577-T0yTjgW.gif",
+      "instructions": {
+        "en": "Adjust the seat height and position yourself on the machine with your back flat against the pad. Grasp the handles with an overhand grip and position your elbows at a 90-degree angle. Push the handles forward until your arms are fully extended, exhaling during the movement. Pause briefly at the end of the movement, then slowly return to the starting position, inhaling as you do so. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Adjust the seat height and position yourself on the machine with your back flat against the pad.",
+          "Grasp the handles with an overhand grip and position your elbows at a 90-degree angle.",
+          "Push the handles forward until your arms are fully extended, exhaling during the movement.",
+          "Pause briefly at the end of the movement, then slowly return to the starting position, inhaling as you do so.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "chest-db": {
+      "id": "0289",
+      "name": "dumbbell bench press",
+      "target": "pectorals",
+      "equipment": "dumbbell",
+      "image": "images/0289-SpYC0Kp.jpg",
+      "gif_url": "videos/0289-SpYC0Kp.gif",
+      "instructions": {
+        "en": "Lie flat on a bench with your feet flat on the ground and your back pressed against the bench. Hold a dumbbell in each hand, with your palms facing forward and your arms extended above your chest. Lower the dumbbells slowly to the sides of your chest, keeping your elbows at a 90-degree angle. Pause for a moment, then push the dumbbells back up to the starting position, fully extending your arms. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Lie flat on a bench with your feet flat on the ground and your back pressed against the bench.",
+          "Hold a dumbbell in each hand, with your palms facing forward and your arms extended above your chest.",
+          "Lower the dumbbells slowly to the sides of your chest, keeping your elbows at a 90-degree angle.",
+          "Pause for a moment, then push the dumbbells back up to the starting position, fully extending your arms.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "chest-home": {
+      "id": "3211",
+      "name": "kneeling push-up (male)",
+      "target": "pectorals",
+      "equipment": "body weight",
+      "image": "images/3211-ZOuKWir.jpg",
+      "gif_url": "videos/3211-ZOuKWir.gif",
+      "instructions": {
+        "en": "Start by kneeling on the ground with your hands shoulder-width apart, fingers pointing forward. Extend your legs behind you, resting on the balls of your feet, so that your body forms a straight line from head to heels. Engage your core and lower your body towards the ground by bending your elbows, keeping them close to your sides. Continue lowering until your chest is just above the ground, then push back up to the starting position by straightening your arms. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Start by kneeling on the ground with your hands shoulder-width apart, fingers pointing forward.",
+          "Extend your legs behind you, resting on the balls of your feet, so that your body forms a straight line from head to heels.",
+          "Engage your core and lower your body towards the ground by bending your elbows, keeping them close to your sides.",
+          "Continue lowering until your chest is just above the ground, then push back up to the starting position by straightening your arms.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "row-gym": {
+      "id": "0180",
+      "name": "cable low seated row",
+      "target": "upper back",
+      "equipment": "cable",
+      "image": "images/0180-hvV79Si.jpg",
+      "gif_url": "videos/0180-hvV79Si.gif",
+      "instructions": {
+        "en": "Sit on the machine with your feet flat on the footrests and your knees slightly bent. Grasp the handles with an overhand grip, palms facing down. Keep your back straight and lean slightly forward, maintaining a slight bend in your elbows. Pull the handles towards your body, squeezing your shoulder blades together. Pause for a moment at the peak of the movement, then slowly release the handles back to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Sit on the machine with your feet flat on the footrests and your knees slightly bent.",
+          "Grasp the handles with an overhand grip, palms facing down.",
+          "Keep your back straight and lean slightly forward, maintaining a slight bend in your elbows.",
+          "Pull the handles towards your body, squeezing your shoulder blades together.",
+          "Pause for a moment at the peak of the movement, then slowly release the handles back to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "row-db": {
+      "id": "0293",
+      "name": "dumbbell bent over row",
+      "target": "upper back",
+      "equipment": "dumbbell",
+      "image": "images/0293-BJ0Hz5L.jpg",
+      "gif_url": "videos/0293-BJ0Hz5L.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart, knees slightly bent, and hold a dumbbell in each hand with your palms facing your body. Bend forward at the hips, keeping your back straight and your core engaged. Let your arms hang straight down towards the floor, with your elbows slightly bent. Pull the dumbbells up towards your chest, squeezing your shoulder blades together. Pause for a moment at the top, then slowly lower the dumbbells back down to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart, knees slightly bent, and hold a dumbbell in each hand with your palms facing your body.",
+          "Bend forward at the hips, keeping your back straight and your core engaged.",
+          "Let your arms hang straight down towards the floor, with your elbows slightly bent.",
+          "Pull the dumbbells up towards your chest, squeezing your shoulder blades together.",
+          "Pause for a moment at the top, then slowly lower the dumbbells back down to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "row-home": {
+      "id": "3144",
+      "name": "resistance band seated straight back row",
+      "target": "upper back",
+      "equipment": "resistance band",
+      "image": "images/3144-Nu7jqFE.jpg",
+      "gif_url": "videos/3144-Nu7jqFE.gif",
+      "instructions": {
+        "en": "Sit on the floor with your legs extended and loop the resistance band around your feet. Hold the ends of the resistance band with your hands, palms facing each other. Keep your back straight and lean slightly back, engaging your core. Pull the resistance band towards your chest, squeezing your shoulder blades together. Pause for a moment at the top, then slowly release the tension and return to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Sit on the floor with your legs extended and loop the resistance band around your feet.",
+          "Hold the ends of the resistance band with your hands, palms facing each other.",
+          "Keep your back straight and lean slightly back, engaging your core.",
+          "Pull the resistance band towards your chest, squeezing your shoulder blades together.",
+          "Pause for a moment at the top, then slowly release the tension and return to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "hinge-gym": {
+      "id": "1459",
+      "name": "dumbbell romanian deadlift",
+      "target": "glutes",
+      "equipment": "dumbbell",
+      "image": "images/1459-rR0LJzx.jpg",
+      "gif_url": "videos/1459-rR0LJzx.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart, holding a dumbbell in each hand with an overhand grip. Keeping your back straight and your core engaged, hinge at the hips and lower the dumbbells towards the ground, allowing your knees to bend slightly. Lower the dumbbells until you feel a stretch in your hamstrings, then push through your heels and engage your glutes to return to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart, holding a dumbbell in each hand with an overhand grip.",
+          "Keeping your back straight and your core engaged, hinge at the hips and lower the dumbbells towards the ground, allowing your knees to bend slightly.",
+          "Lower the dumbbells until you feel a stretch in your hamstrings, then push through your heels and engage your glutes to return to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "hinge-db": {
+      "id": "1459",
+      "name": "dumbbell romanian deadlift",
+      "target": "glutes",
+      "equipment": "dumbbell",
+      "image": "images/1459-rR0LJzx.jpg",
+      "gif_url": "videos/1459-rR0LJzx.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart, holding a dumbbell in each hand with an overhand grip. Keeping your back straight and your core engaged, hinge at the hips and lower the dumbbells towards the ground, allowing your knees to bend slightly. Lower the dumbbells until you feel a stretch in your hamstrings, then push through your heels and engage your glutes to return to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart, holding a dumbbell in each hand with an overhand grip.",
+          "Keeping your back straight and your core engaged, hinge at the hips and lower the dumbbells towards the ground, allowing your knees to bend slightly.",
+          "Lower the dumbbells until you feel a stretch in your hamstrings, then push through your heels and engage your glutes to return to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "hinge-home": {
+      "id": "3013",
+      "name": "low glute bridge on floor",
+      "target": "glutes",
+      "equipment": "body weight",
+      "image": "images/3013-u0cNiij.jpg",
+      "gif_url": "videos/3013-u0cNiij.gif",
+      "instructions": {
+        "en": "Lie flat on your back with your knees bent and feet flat on the ground. Place your arms by your sides, palms facing down. Engage your glutes and core, then lift your hips off the ground until your body forms a straight line from your knees to your shoulders. Pause for a moment at the top, squeezing your glutes. Slowly lower your hips back down to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Lie flat on your back with your knees bent and feet flat on the ground.",
+          "Place your arms by your sides, palms facing down.",
+          "Engage your glutes and core, then lift your hips off the ground until your body forms a straight line from your knees to your shoulders.",
+          "Pause for a moment at the top, squeezing your glutes.",
+          "Slowly lower your hips back down to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "shoulder-gym": {
+      "id": "0405",
+      "name": "dumbbell seated shoulder press",
+      "target": "delts",
+      "equipment": "dumbbell",
+      "image": "images/0405-znQUdHY.jpg",
+      "gif_url": "videos/0405-znQUdHY.gif",
+      "instructions": {
+        "en": "Sit on a bench with a dumbbell in each hand, resting on your thighs. Raise the dumbbells to shoulder height, palms facing forward. Press the dumbbells upward until your arms are fully extended overhead. Pause for a moment at the top, then slowly lower the dumbbells back to shoulder height. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Sit on a bench with a dumbbell in each hand, resting on your thighs.",
+          "Raise the dumbbells to shoulder height, palms facing forward.",
+          "Press the dumbbells upward until your arms are fully extended overhead.",
+          "Pause for a moment at the top, then slowly lower the dumbbells back to shoulder height.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "shoulder-db": {
+      "id": "0405",
+      "name": "dumbbell seated shoulder press",
+      "target": "delts",
+      "equipment": "dumbbell",
+      "image": "images/0405-znQUdHY.jpg",
+      "gif_url": "videos/0405-znQUdHY.gif",
+      "instructions": {
+        "en": "Sit on a bench with a dumbbell in each hand, resting on your thighs. Raise the dumbbells to shoulder height, palms facing forward. Press the dumbbells upward until your arms are fully extended overhead. Pause for a moment at the top, then slowly lower the dumbbells back to shoulder height. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Sit on a bench with a dumbbell in each hand, resting on your thighs.",
+          "Raise the dumbbells to shoulder height, palms facing forward.",
+          "Press the dumbbells upward until your arms are fully extended overhead.",
+          "Pause for a moment at the top, then slowly lower the dumbbells back to shoulder height.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "shoulder-home": {
+      "id": "3122",
+      "name": "resistance band seated shoulder press",
+      "target": "delts",
+      "equipment": "resistance band",
+      "image": "images/3122-S93zLTG.jpg",
+      "gif_url": "videos/3122-S93zLTG.gif",
+      "instructions": {
+        "en": "Sit on a chair or bench with your back straight and feet flat on the ground. Hold the resistance band with both hands, palms facing forward, and bring it up to shoulder level. Press the band overhead, extending your arms fully. Pause for a moment at the top, then slowly lower the band back down to shoulder level. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Sit on a chair or bench with your back straight and feet flat on the ground.",
+          "Hold the resistance band with both hands, palms facing forward, and bring it up to shoulder level.",
+          "Press the band overhead, extending your arms fully.",
+          "Pause for a moment at the top, then slowly lower the band back down to shoulder level.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "pull-gym": {
+      "id": "2330",
+      "name": "cable lat pulldown full range of motion",
+      "target": "lats",
+      "equipment": "cable",
+      "image": "images/2330-LEprlgG.jpg",
+      "gif_url": "videos/2330-LEprlgG.gif",
+      "instructions": {
+        "en": "Sit on the lat pulldown machine with your knees positioned under the pads. Grasp the cable bar with an overhand grip, slightly wider than shoulder-width apart. Lean back slightly and keep your chest up, maintaining a slight arch in your lower back. Pull the bar down towards your upper chest, squeezing your shoulder blades together. Pause for a moment at the bottom of the movement, then slowly release the bar back to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Sit on the lat pulldown machine with your knees positioned under the pads.",
+          "Grasp the cable bar with an overhand grip, slightly wider than shoulder-width apart.",
+          "Lean back slightly and keep your chest up, maintaining a slight arch in your lower back.",
+          "Pull the bar down towards your upper chest, squeezing your shoulder blades together.",
+          "Pause for a moment at the bottom of the movement, then slowly release the bar back to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "pull-db": {
+      "id": "0293",
+      "name": "dumbbell bent over row",
+      "target": "upper back",
+      "equipment": "dumbbell",
+      "image": "images/0293-BJ0Hz5L.jpg",
+      "gif_url": "videos/0293-BJ0Hz5L.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart, knees slightly bent, and hold a dumbbell in each hand with your palms facing your body. Bend forward at the hips, keeping your back straight and your core engaged. Let your arms hang straight down towards the floor, with your elbows slightly bent. Pull the dumbbells up towards your chest, squeezing your shoulder blades together. Pause for a moment at the top, then slowly lower the dumbbells back down to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart, knees slightly bent, and hold a dumbbell in each hand with your palms facing your body.",
+          "Bend forward at the hips, keeping your back straight and your core engaged.",
+          "Let your arms hang straight down towards the floor, with your elbows slightly bent.",
+          "Pull the dumbbells up towards your chest, squeezing your shoulder blades together.",
+          "Pause for a moment at the top, then slowly lower the dumbbells back down to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "pull-home": {
+      "id": "3144",
+      "name": "resistance band seated straight back row",
+      "target": "upper back",
+      "equipment": "resistance band",
+      "image": "images/3144-Nu7jqFE.jpg",
+      "gif_url": "videos/3144-Nu7jqFE.gif",
+      "instructions": {
+        "en": "Sit on the floor with your legs extended and loop the resistance band around your feet. Hold the ends of the resistance band with your hands, palms facing each other. Keep your back straight and lean slightly back, engaging your core. Pull the resistance band towards your chest, squeezing your shoulder blades together. Pause for a moment at the top, then slowly release the tension and return to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Sit on the floor with your legs extended and loop the resistance band around your feet.",
+          "Hold the ends of the resistance band with your hands, palms facing each other.",
+          "Keep your back straight and lean slightly back, engaging your core.",
+          "Pull the resistance band towards your chest, squeezing your shoulder blades together.",
+          "Pause for a moment at the top, then slowly release the tension and return to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "curl-gym": {
+      "id": "0294",
+      "name": "dumbbell biceps curl",
+      "target": "biceps",
+      "equipment": "dumbbell",
+      "image": "images/0294-NbVPDMW.jpg",
+      "gif_url": "videos/0294-NbVPDMW.gif",
+      "instructions": {
+        "en": "Stand up straight with a dumbbell in each hand, palms facing forward and arms fully extended. Keeping your upper arms stationary, exhale and curl the weights while contracting your biceps. Continue to raise the weights until your biceps are fully contracted and the dumbbells are at shoulder level. Hold the contracted position for a brief pause as you squeeze your biceps. Inhale and slowly begin to lower the dumbbells back to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand up straight with a dumbbell in each hand, palms facing forward and arms fully extended.",
+          "Keeping your upper arms stationary, exhale and curl the weights while contracting your biceps.",
+          "Continue to raise the weights until your biceps are fully contracted and the dumbbells are at shoulder level.",
+          "Hold the contracted position for a brief pause as you squeeze your biceps.",
+          "Inhale and slowly begin to lower the dumbbells back to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "curl-db": {
+      "id": "0294",
+      "name": "dumbbell biceps curl",
+      "target": "biceps",
+      "equipment": "dumbbell",
+      "image": "images/0294-NbVPDMW.jpg",
+      "gif_url": "videos/0294-NbVPDMW.gif",
+      "instructions": {
+        "en": "Stand up straight with a dumbbell in each hand, palms facing forward and arms fully extended. Keeping your upper arms stationary, exhale and curl the weights while contracting your biceps. Continue to raise the weights until your biceps are fully contracted and the dumbbells are at shoulder level. Hold the contracted position for a brief pause as you squeeze your biceps. Inhale and slowly begin to lower the dumbbells back to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand up straight with a dumbbell in each hand, palms facing forward and arms fully extended.",
+          "Keeping your upper arms stationary, exhale and curl the weights while contracting your biceps.",
+          "Continue to raise the weights until your biceps are fully contracted and the dumbbells are at shoulder level.",
+          "Hold the contracted position for a brief pause as you squeeze your biceps.",
+          "Inhale and slowly begin to lower the dumbbells back to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "curl-home": {
+      "id": "3123",
+      "name": "resistance band seated biceps curl",
+      "target": "biceps",
+      "equipment": "resistance band",
+      "image": "images/3123-XFc3vpY.jpg",
+      "gif_url": "videos/3123-XFc3vpY.gif",
+      "instructions": {
+        "en": "Sit on a chair or bench with your back straight and feet flat on the ground. Hold the resistance band with an underhand grip, palms facing up, and arms extended down by your sides. Keeping your upper arms stationary, exhale and curl the resistance band up towards your shoulders. Pause for a moment at the top, squeezing your biceps. Inhale and slowly lower the resistance band back to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Sit on a chair or bench with your back straight and feet flat on the ground.",
+          "Hold the resistance band with an underhand grip, palms facing up, and arms extended down by your sides.",
+          "Keeping your upper arms stationary, exhale and curl the resistance band up towards your shoulders.",
+          "Pause for a moment at the top, squeezing your biceps.",
+          "Inhale and slowly lower the resistance band back to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "legs-gym": {
+      "id": "0599",
+      "name": "lever seated leg curl",
+      "target": "hamstrings",
+      "equipment": "leverage machine",
+      "image": "images/0599-Zg3XY7P.jpg",
+      "gif_url": "videos/0599-Zg3XY7P.gif",
+      "instructions": {
+        "en": "Adjust the machine to fit your body and sit on it with your back against the backrest. Place your lower legs under the padded lever, just above your ankles. Grasp the handles on the sides of the machine for support. Keeping your upper legs stationary, exhale and curl your legs up as far as possible. Hold the contracted position for a brief pause as you squeeze your hamstrings. Inhale and slowly lower the lever back to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Adjust the machine to fit your body and sit on it with your back against the backrest.",
+          "Place your lower legs under the padded lever, just above your ankles.",
+          "Grasp the handles on the sides of the machine for support.",
+          "Keeping your upper legs stationary, exhale and curl your legs up as far as possible.",
+          "Hold the contracted position for a brief pause as you squeeze your hamstrings.",
+          "Inhale and slowly lower the lever back to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "legs-db": {
+      "id": "0336",
+      "name": "dumbbell lunge",
+      "target": "glutes",
+      "equipment": "dumbbell",
+      "image": "images/0336-RRWFUcw.jpg",
+      "gif_url": "videos/0336-RRWFUcw.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart, holding a dumbbell in each hand. Take a step forward with your right foot, lowering your body into a lunge position. Keep your back straight and your chest up as you lower your body. Push through your right heel to return to the starting position. Repeat with your left leg. Alternate legs for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart, holding a dumbbell in each hand.",
+          "Take a step forward with your right foot, lowering your body into a lunge position.",
+          "Keep your back straight and your chest up as you lower your body.",
+          "Push through your right heel to return to the starting position.",
+          "Repeat with your left leg.",
+          "Alternate legs for the desired number of repetitions."
+        ]
+      }
+    },
+    "legs-home": {
+      "id": "1685",
+      "name": "squat to overhead reach",
+      "target": "quads",
+      "equipment": "body weight",
+      "image": "images/1685-QChZi3x.jpg",
+      "gif_url": "videos/1685-QChZi3x.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart and toes slightly turned out. Lower your body down into a squat position by bending your knees and pushing your hips back. As you come up from the squat, extend your arms overhead, reaching towards the ceiling. Return to the starting position by lowering your arms and bending your knees to squat down again. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart and toes slightly turned out.",
+          "Lower your body down into a squat position by bending your knees and pushing your hips back.",
+          "As you come up from the squat, extend your arms overhead, reaching towards the ceiling.",
+          "Return to the starting position by lowering your arms and bending your knees to squat down again.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "calf-gym": {
+      "id": "1373",
+      "name": "bodyweight standing calf raise",
+      "target": "calves",
+      "equipment": "body weight",
+      "image": "images/1373-bJYHBIN.jpg",
+      "gif_url": "videos/1373-bJYHBIN.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart, toes pointing forward. Place your hands on a wall or stable surface for balance. Slowly raise your heels off the ground, lifting your body weight onto the balls of your feet. Pause for a moment at the top, then slowly lower your heels back down to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart, toes pointing forward.",
+          "Place your hands on a wall or stable surface for balance.",
+          "Slowly raise your heels off the ground, lifting your body weight onto the balls of your feet.",
+          "Pause for a moment at the top, then slowly lower your heels back down to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "calf-db": {
+      "id": "0417",
+      "name": "dumbbell standing calf raise",
+      "target": "calves",
+      "equipment": "dumbbell",
+      "image": "images/0417-dPmaUaU.jpg",
+      "gif_url": "videos/0417-dPmaUaU.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart, holding a dumbbell in each hand. Raise your heels off the ground as high as possible, using your calves. Pause for a moment at the top, then slowly lower your heels back down to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart, holding a dumbbell in each hand.",
+          "Raise your heels off the ground as high as possible, using your calves.",
+          "Pause for a moment at the top, then slowly lower your heels back down to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "calf-home": {
+      "id": "1373",
+      "name": "bodyweight standing calf raise",
+      "target": "calves",
+      "equipment": "body weight",
+      "image": "images/1373-bJYHBIN.jpg",
+      "gif_url": "videos/1373-bJYHBIN.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart, toes pointing forward. Place your hands on a wall or stable surface for balance. Slowly raise your heels off the ground, lifting your body weight onto the balls of your feet. Pause for a moment at the top, then slowly lower your heels back down to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart, toes pointing forward.",
+          "Place your hands on a wall or stable surface for balance.",
+          "Slowly raise your heels off the ground, lifting your body weight onto the balls of your feet.",
+          "Pause for a moment at the top, then slowly lower your heels back down to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "core-gym": {
+      "id": "0276",
+      "name": "dead bug",
+      "target": "abs",
+      "equipment": "body weight",
+      "image": "images/0276-iny3m5y.jpg",
+      "gif_url": "videos/0276-iny3m5y.gif",
+      "instructions": {
+        "en": "Lie flat on your back with your arms extended towards the ceiling. Bend your knees and lift your legs off the ground, creating a 90-degree angle at your hips and knees. Engage your core and lower back to press your lower back into the ground. Slowly lower your right arm and left leg towards the ground, keeping them straight and hovering just above the floor. Pause for a moment, then return to the starting position. Repeat the movement with your left arm and right leg. Continue alternating sides for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Lie flat on your back with your arms extended towards the ceiling.",
+          "Bend your knees and lift your legs off the ground, creating a 90-degree angle at your hips and knees.",
+          "Engage your core and lower back to press your lower back into the ground.",
+          "Slowly lower your right arm and left leg towards the ground, keeping them straight and hovering just above the floor.",
+          "Pause for a moment, then return to the starting position.",
+          "Repeat the movement with your left arm and right leg.",
+          "Continue alternating sides for the desired number of repetitions."
+        ]
+      }
+    },
+    "core-db": {
+      "id": "0276",
+      "name": "dead bug",
+      "target": "abs",
+      "equipment": "body weight",
+      "image": "images/0276-iny3m5y.jpg",
+      "gif_url": "videos/0276-iny3m5y.gif",
+      "instructions": {
+        "en": "Lie flat on your back with your arms extended towards the ceiling. Bend your knees and lift your legs off the ground, creating a 90-degree angle at your hips and knees. Engage your core and lower back to press your lower back into the ground. Slowly lower your right arm and left leg towards the ground, keeping them straight and hovering just above the floor. Pause for a moment, then return to the starting position. Repeat the movement with your left arm and right leg. Continue alternating sides for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Lie flat on your back with your arms extended towards the ceiling.",
+          "Bend your knees and lift your legs off the ground, creating a 90-degree angle at your hips and knees.",
+          "Engage your core and lower back to press your lower back into the ground.",
+          "Slowly lower your right arm and left leg towards the ground, keeping them straight and hovering just above the floor.",
+          "Pause for a moment, then return to the starting position.",
+          "Repeat the movement with your left arm and right leg.",
+          "Continue alternating sides for the desired number of repetitions."
+        ]
+      }
+    },
+    "core-home": {
+      "id": "0276",
+      "name": "dead bug",
+      "target": "abs",
+      "equipment": "body weight",
+      "image": "images/0276-iny3m5y.jpg",
+      "gif_url": "videos/0276-iny3m5y.gif",
+      "instructions": {
+        "en": "Lie flat on your back with your arms extended towards the ceiling. Bend your knees and lift your legs off the ground, creating a 90-degree angle at your hips and knees. Engage your core and lower back to press your lower back into the ground. Slowly lower your right arm and left leg towards the ground, keeping them straight and hovering just above the floor. Pause for a moment, then return to the starting position. Repeat the movement with your left arm and right leg. Continue alternating sides for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Lie flat on your back with your arms extended towards the ceiling.",
+          "Bend your knees and lift your legs off the ground, creating a 90-degree angle at your hips and knees.",
+          "Engage your core and lower back to press your lower back into the ground.",
+          "Slowly lower your right arm and left leg towards the ground, keeping them straight and hovering just above the floor.",
+          "Pause for a moment, then return to the starting position.",
+          "Repeat the movement with your left arm and right leg.",
+          "Continue alternating sides for the desired number of repetitions."
+        ]
+      }
+    },
+    "chestExtra-gym": {
+      "id": "0314",
+      "name": "dumbbell incline bench press",
+      "target": "pectorals",
+      "equipment": "dumbbell",
+      "image": "images/0314-ns0SIbU.jpg",
+      "gif_url": "videos/0314-ns0SIbU.gif",
+      "instructions": {
+        "en": "Set up an incline bench at a 45-degree angle. Sit on the bench with your feet flat on the ground and your back pressed firmly against the bench. Hold a dumbbell in each hand, palms facing forward, and lift them to shoulder height. Slowly lower the dumbbells to the sides of your chest, keeping your elbows at a 90-degree angle. Push the dumbbells back up to the starting position, fully extending your arms. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Set up an incline bench at a 45-degree angle.",
+          "Sit on the bench with your feet flat on the ground and your back pressed firmly against the bench.",
+          "Hold a dumbbell in each hand, palms facing forward, and lift them to shoulder height.",
+          "Slowly lower the dumbbells to the sides of your chest, keeping your elbows at a 90-degree angle.",
+          "Push the dumbbells back up to the starting position, fully extending your arms.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "chestExtra-db": {
+      "id": "0314",
+      "name": "dumbbell incline bench press",
+      "target": "pectorals",
+      "equipment": "dumbbell",
+      "image": "images/0314-ns0SIbU.jpg",
+      "gif_url": "videos/0314-ns0SIbU.gif",
+      "instructions": {
+        "en": "Set up an incline bench at a 45-degree angle. Sit on the bench with your feet flat on the ground and your back pressed firmly against the bench. Hold a dumbbell in each hand, palms facing forward, and lift them to shoulder height. Slowly lower the dumbbells to the sides of your chest, keeping your elbows at a 90-degree angle. Push the dumbbells back up to the starting position, fully extending your arms. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Set up an incline bench at a 45-degree angle.",
+          "Sit on the bench with your feet flat on the ground and your back pressed firmly against the bench.",
+          "Hold a dumbbell in each hand, palms facing forward, and lift them to shoulder height.",
+          "Slowly lower the dumbbells to the sides of your chest, keeping your elbows at a 90-degree angle.",
+          "Push the dumbbells back up to the starting position, fully extending your arms.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "chestExtra-home": {
+      "id": "3124",
+      "name": "resistance band seated chest press",
+      "target": "pectorals",
+      "equipment": "resistance band",
+      "image": "images/3124-4x5Okof.jpg",
+      "gif_url": "videos/3124-4x5Okof.gif",
+      "instructions": {
+        "en": "Sit on a chair or bench with your back straight and feet flat on the ground. Hold the resistance band handles in each hand, with your palms facing down and elbows bent at a 90-degree angle. Extend your arms forward, pushing the resistance band away from your chest. Pause for a moment at the end of the movement, then slowly return to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Sit on a chair or bench with your back straight and feet flat on the ground.",
+          "Hold the resistance band handles in each hand, with your palms facing down and elbows bent at a 90-degree angle.",
+          "Extend your arms forward, pushing the resistance band away from your chest.",
+          "Pause for a moment at the end of the movement, then slowly return to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "shoulderExtra-gym": {
+      "id": "0334",
+      "name": "dumbbell lateral raise",
+      "target": "delts",
+      "equipment": "dumbbell",
+      "image": "images/0334-DsgkuIt.jpg",
+      "gif_url": "videos/0334-DsgkuIt.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart and hold a dumbbell in each hand, palms facing your body. Keep your back straight and engage your core. Raise your arms out to the sides until they are parallel to the floor, keeping a slight bend in your elbows. Pause for a moment at the top, then slowly lower your arms back down to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart and hold a dumbbell in each hand, palms facing your body.",
+          "Keep your back straight and engage your core.",
+          "Raise your arms out to the sides until they are parallel to the floor, keeping a slight bend in your elbows.",
+          "Pause for a moment at the top, then slowly lower your arms back down to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "shoulderExtra-db": {
+      "id": "0334",
+      "name": "dumbbell lateral raise",
+      "target": "delts",
+      "equipment": "dumbbell",
+      "image": "images/0334-DsgkuIt.jpg",
+      "gif_url": "videos/0334-DsgkuIt.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart and hold a dumbbell in each hand, palms facing your body. Keep your back straight and engage your core. Raise your arms out to the sides until they are parallel to the floor, keeping a slight bend in your elbows. Pause for a moment at the top, then slowly lower your arms back down to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart and hold a dumbbell in each hand, palms facing your body.",
+          "Keep your back straight and engage your core.",
+          "Raise your arms out to the sides until they are parallel to the floor, keeping a slight bend in your elbows.",
+          "Pause for a moment at the top, then slowly lower your arms back down to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "shoulderExtra-home": {
+      "id": "0977",
+      "name": "band front lateral raise",
+      "target": "delts",
+      "equipment": "band",
+      "image": "images/0977-sTg7iys.jpg",
+      "gif_url": "videos/0977-sTg7iys.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart and hold the band in front of your thighs with your palms facing down. Keep your arms straight and lift the band up in front of you until your arms are parallel to the ground. Pause for a moment at the top, then slowly lower the band back down to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart and hold the band in front of your thighs with your palms facing down.",
+          "Keep your arms straight and lift the band up in front of you until your arms are parallel to the ground.",
+          "Pause for a moment at the top, then slowly lower the band back down to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "rear-gym": {
+      "id": "0378",
+      "name": "dumbbell rear fly",
+      "target": "delts",
+      "equipment": "dumbbell",
+      "image": "images/0378-8DiFDVA.jpg",
+      "gif_url": "videos/0378-8DiFDVA.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart and hold a dumbbell in each hand. Bend your knees slightly and hinge forward at the hips, keeping your back straight. Extend your arms straight down towards the ground, palms facing each other. Keeping a slight bend in your elbows, lift your arms out to the sides and squeeze your shoulder blades together. Pause for a moment at the top, then slowly lower your arms back down to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart and hold a dumbbell in each hand.",
+          "Bend your knees slightly and hinge forward at the hips, keeping your back straight.",
+          "Extend your arms straight down towards the ground, palms facing each other.",
+          "Keeping a slight bend in your elbows, lift your arms out to the sides and squeeze your shoulder blades together.",
+          "Pause for a moment at the top, then slowly lower your arms back down to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "rear-db": {
+      "id": "0378",
+      "name": "dumbbell rear fly",
+      "target": "delts",
+      "equipment": "dumbbell",
+      "image": "images/0378-8DiFDVA.jpg",
+      "gif_url": "videos/0378-8DiFDVA.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart and hold a dumbbell in each hand. Bend your knees slightly and hinge forward at the hips, keeping your back straight. Extend your arms straight down towards the ground, palms facing each other. Keeping a slight bend in your elbows, lift your arms out to the sides and squeeze your shoulder blades together. Pause for a moment at the top, then slowly lower your arms back down to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart and hold a dumbbell in each hand.",
+          "Bend your knees slightly and hinge forward at the hips, keeping your back straight.",
+          "Extend your arms straight down towards the ground, palms facing each other.",
+          "Keeping a slight bend in your elbows, lift your arms out to the sides and squeeze your shoulder blades together.",
+          "Pause for a moment at the top, then slowly lower your arms back down to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    },
+    "rear-home": {
+      "id": "1022",
+      "name": "band standing rear delt row",
+      "target": "delts",
+      "equipment": "band",
+      "image": "images/1022-tc5dYrf.jpg",
+      "gif_url": "videos/1022-tc5dYrf.gif",
+      "instructions": {
+        "en": "Stand with your feet shoulder-width apart and place the band under your feet. Hold the band handles with your palms facing each other and your arms extended in front of you. Bend your knees slightly and hinge forward at the hips, keeping your back straight. Pull the band towards your chest, squeezing your shoulder blades together. Pause for a moment at the top, then slowly release the tension and return to the starting position. Repeat for the desired number of repetitions."
+      },
+      "instruction_steps": {
+        "en": [
+          "Stand with your feet shoulder-width apart and place the band under your feet.",
+          "Hold the band handles with your palms facing each other and your arms extended in front of you.",
+          "Bend your knees slightly and hinge forward at the hips, keeping your back straight.",
+          "Pull the band towards your chest, squeezing your shoulder blades together.",
+          "Pause for a moment at the top, then slowly release the tension and return to the starting position.",
+          "Repeat for the desired number of repetitions."
+        ]
+      }
+    }
+  },
+  "templates": [
+    {
+      "id": "balanced-2-v1",
+      "name": "Full body \u00b7 2 days",
+      "daysPerWeek": 2,
+      "tags": [
+        "balanced",
+        "upperbody",
+        "chest",
+        "shoulders",
+        "legs",
+        "core",
+        "back"
+      ],
+      "sessions": [
+        {
+          "name": "Full A",
+          "slots": [
+            "squat",
+            "chest",
+            "row",
+            "hinge",
+            "shoulder",
+            "core",
+            "curl"
+          ]
+        },
+        {
+          "name": "Full B",
+          "slots": [
+            "hinge",
+            "chest",
+            "pull",
+            "squat",
+            "core",
+            "calf",
+            "curl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "balanced-3-v1",
+      "name": "Full body \u00b7 3 days",
+      "daysPerWeek": 3,
+      "tags": [
+        "balanced",
+        "upperbody",
+        "chest",
+        "shoulders",
+        "legs",
+        "core",
+        "back"
+      ],
+      "sessions": [
+        {
+          "name": "Full A",
+          "slots": [
+            "squat",
+            "chest",
+            "row",
+            "hinge",
+            "shoulder",
+            "core",
+            "curl"
+          ]
+        },
+        {
+          "name": "Full B",
+          "slots": [
+            "hinge",
+            "chest",
+            "pull",
+            "squat",
+            "core",
+            "calf",
+            "curl"
+          ]
+        },
+        {
+          "name": "Full C",
+          "slots": [
+            "squat",
+            "row",
+            "chest",
+            "hinge",
+            "core",
+            "shoulderExtra",
+            "curl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "balanced-4-v1",
+      "name": "Upper / lower \u00b7 4 days",
+      "daysPerWeek": 4,
+      "tags": [
+        "balanced",
+        "upperbody",
+        "chest",
+        "shoulders",
+        "legs",
+        "core",
+        "back"
+      ],
+      "sessions": [
+        {
+          "name": "Upper A",
+          "slots": [
+            "chest",
+            "row",
+            "shoulder",
+            "pull",
+            "core",
+            "curl",
+            "shoulderExtra"
+          ]
+        },
+        {
+          "name": "Lower A",
+          "slots": [
+            "squat",
+            "hinge",
+            "legs",
+            "calf",
+            "core"
+          ]
+        },
+        {
+          "name": "Upper B",
+          "slots": [
+            "pull",
+            "chest",
+            "row",
+            "shoulder",
+            "core",
+            "curl",
+            "chestExtra"
+          ]
+        },
+        {
+          "name": "Lower B",
+          "slots": [
+            "hinge",
+            "squat",
+            "legs",
+            "calf",
+            "core"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "balanced-5-v1",
+      "name": "Upper / lower + push / pull / legs",
+      "daysPerWeek": 5,
+      "tags": [
+        "balanced",
+        "upperbody",
+        "chest",
+        "shoulders",
+        "legs",
+        "core",
+        "back"
+      ],
+      "sessions": [
+        {
+          "name": "Upper A",
+          "slots": [
+            "chest",
+            "row",
+            "shoulder",
+            "pull",
+            "core",
+            "curl",
+            "shoulderExtra"
+          ]
+        },
+        {
+          "name": "Lower A",
+          "slots": [
+            "squat",
+            "hinge",
+            "legs",
+            "calf",
+            "core"
+          ]
+        },
+        {
+          "name": "Push",
+          "slots": [
+            "chest",
+            "shoulder",
+            "chestExtra",
+            "shoulderExtra",
+            "core"
+          ]
+        },
+        {
+          "name": "Pull",
+          "slots": [
+            "row",
+            "pull",
+            "rear",
+            "curl",
+            "core"
+          ]
+        },
+        {
+          "name": "Legs",
+          "slots": [
+            "squat",
+            "hinge",
+            "legs",
+            "calf",
+            "core"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "balanced-6-v1",
+      "name": "Push / pull / legs \u00b7 6 days",
+      "daysPerWeek": 6,
+      "tags": [
+        "balanced",
+        "upperbody",
+        "chest",
+        "shoulders",
+        "legs",
+        "core",
+        "back"
+      ],
+      "sessions": [
+        {
+          "name": "Push 1",
+          "slots": [
+            "chest",
+            "shoulder",
+            "chestExtra",
+            "shoulderExtra",
+            "core"
+          ]
+        },
+        {
+          "name": "Pull 1",
+          "slots": [
+            "row",
+            "pull",
+            "rear",
+            "curl",
+            "core"
+          ]
+        },
+        {
+          "name": "Legs 1",
+          "slots": [
+            "squat",
+            "hinge",
+            "legs",
+            "calf",
+            "core"
+          ]
+        },
+        {
+          "name": "Push 2",
+          "slots": [
+            "chest",
+            "shoulder",
+            "chestExtra",
+            "shoulderExtra",
+            "core"
+          ]
+        },
+        {
+          "name": "Pull 2",
+          "slots": [
+            "row",
+            "pull",
+            "rear",
+            "curl",
+            "core"
+          ]
+        },
+        {
+          "name": "Legs 2",
+          "slots": [
+            "squat",
+            "hinge",
+            "legs",
+            "calf",
+            "core"
+          ]
+        }
+      ]
+    }
+  ]
+}
