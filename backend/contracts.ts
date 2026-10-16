@@ -60,6 +60,7 @@ export type WorkoutSettings = {
   weeklyPlan?: Record<number, string | null>;
   restDays?: Record<string, boolean | 'auto'>;
   autoRestNextDate?: string | null;
+  autoRestStartedAt?: number;
   focusDraft?: FocusDraft | null;
   selectedSessionId?: string | null;
   country?: string;

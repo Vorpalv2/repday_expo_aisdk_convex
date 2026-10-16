@@ -41,12 +41,22 @@ test('unfinished workout blocks processing until completed or discarded', async 
   assert.deepEqual(discarded.restDays,{'2026-10-14':'auto','2026-10-15':'auto'});
 });
 
-test('first use checks yesterday only, midnight advances and repeated checks do nothing', async () => {
+test('first use starts today, midnight advances and repeated checks do nothing', async () => {
   const { fillAutomaticRestDays } = await import('../lib/restDays');
   const first=fillAutomaticRestDays({today:'2026-11-01',nextDate:null,restDays:{},completedDates:new Set<string>(),activeDate:null});
-  assert.deepEqual(first,{restDays:{'2026-10-31':'auto'},nextDate:'2026-11-01'});
+  assert.deepEqual(first,{restDays:{},nextDate:'2026-11-01'});
   const same=fillAutomaticRestDays({...first,today:'2026-11-01',completedDates:new Set<string>(),activeDate:null});
   assert.equal(same.restDays,first.restDays);
   const next=fillAutomaticRestDays({...first,today:'2026-11-02',completedDates:new Set<string>(),activeDate:null});
-  assert.deepEqual(next.restDays,{'2026-10-31':'auto','2026-11-01':'auto'});
+  assert.deepEqual(next.restDays,{'2026-11-01':'auto'});
+});
+
+
+test('repair only automatic entries before tracking and clamp an old cursor',async()=>{
+  const { fillAutomaticRestDays } = await import('../lib/restDays');
+  const result=fillAutomaticRestDays({today:'2026-10-16',nextDate:'2026-10-12',trackingStartDate:'2026-10-16',restDays:{'2026-10-13':true,'2026-10-14':false,'2026-10-15':'auto'},completedDates:new Set<string>(),activeDate:null});
+  assert.deepEqual(result,{restDays:{'2026-10-13':true,'2026-10-14':false,'2026-10-15':false},nextDate:'2026-10-16'});
+  assert.equal(isRestDay(new Date('2026-10-15T08:00:00Z'),'Asia/Kolkata',{3:'push'},result.restDays),false);
+  const next=fillAutomaticRestDays({...result,today:'2026-10-17',trackingStartDate:'2026-10-16',completedDates:new Set<string>(),activeDate:null});
+  assert.equal(next.restDays['2026-10-16'],'auto');
 });

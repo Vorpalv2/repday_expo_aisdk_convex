@@ -19,14 +19,22 @@ export function shiftDayKey(key: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-// The cursor starts yesterday when this feature is first used, then catches up
-// from the last checked date. Never infer rest before the feature was enabled.
-export function fillAutomaticRestDays({ today, nextDate, restDays, completedDates, activeDate }: {
+// Start tracking on first use, then catch up from the last checked date.
+// Never infer missed workouts before the account began tracking activity.
+export function fillAutomaticRestDays({ today, nextDate, restDays, completedDates, activeDate, trackingStartDate }: {
   today: string; nextDate: string | null; restDays: RestDays;
-  completedDates: Set<string>; activeDate: string | null;
+  completedDates: Set<string>; activeDate: string | null; trackingStartDate?: string;
 }): { restDays: RestDays; nextDate: string } {
-  let cursor = nextDate ?? shiftDayKey(today, -1);
+  let cursor = nextDate ?? today;
+  if(trackingStartDate && cursor < trackingStartDate) cursor = trackingStartDate;
   let updated = restDays;
+  if(trackingStartDate)for(const [date,status] of Object.entries(restDays)){
+    if(status === 'auto' && date < trackingStartDate){
+      if(updated === restDays)updated = {...restDays};
+      // Explicit false also clears an old automatic entry in Firestore's merged map.
+      updated[date] = false;
+    }
+  }
   while (cursor < today) {
     // Revisit an unfinished workout's date after it is finished or discarded.
     if (cursor === activeDate) break;

@@ -19,7 +19,7 @@ Equipment options: full gym; dumbbells and a bench; home with bodyweight, resist
 A single Firestore batch writes:
 
 - `users/{uid}/splits/{generatedSessionId}`: editable session copies with unique IDs and positions.
-- `users/{uid}/settings/main`: seven-day `weeklyPlan`, selected session, cleared daily edit draft, and `guidedPlan` metadata (installation ID, template ID/version, preferences, creation timestamp).
+- `users/{uid}/settings/main`: seven-day `weeklyPlan`, selected session, cleared daily edit draft, an onboarding activity-tracking start date/cursor, and `guidedPlan` metadata (installation ID, template ID/version, preferences, creation timestamp).
 
 Shared templates are never edited by saving a user plan. A failed/retried save uses the same preview IDs and cannot create duplicate splits. The current weekly schedule is replaced only when the user presses Use this plan / Save new plan. Local app storage continues to cache the copies through the existing persistence flow.
 
@@ -32,3 +32,5 @@ Keep the bundled catalog and published Firestore catalog in sync. Publish a new 
 Plan structure follows the [ACSM 2026 guidance](https://acsm.org/resistance-training-guidelines-update-2026/) to cover all major muscle groups, prioritize consistency, and keep starting routines manageable. The exact templates are Repday's implementation choices, not individual prescriptions from ACSM.
 
 Run `npx tsx --test tests/training-plan.test.ts` for schedule, focus, equipment, independence and invalid-input coverage. Browser QA covers onboarding, refresh resumption, preview, cloud persistence, rebuild, and catalog access rules using a disposable test account.
+
+Automatic rest tracking starts on the account’s first app use, never by retroactively classifying yesterday. New guided onboarding saves its start timestamp with the plan; rebuilding a plan keeps that tracking boundary. Legacy automatic entries before account creation are repaired to false without changing manual rest choices. Weekly Activity’s planned-day count comes from the recurring weekly plan; historical rest exceptions do not change that count.
