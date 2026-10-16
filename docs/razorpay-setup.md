@@ -38,8 +38,9 @@ six workout splits. Workout tracking and up to six splits remain free.
 Local Razorpay test credentials, a sandbox plan, and Firebase server credentials
 are configured. Firebase server authentication and Firestore read access have
 been verified without changing user records. Local checkout, signed verification, webhook processing, cancellation, expiry,
-and feature gates are implemented. Hosted billing configuration and webhook
-registration remain separate deployment steps.
+and feature gates are implemented. The Test Mode web/API release and Firestore
+rules were deployed to `repday.expo.app` on 16 October 2026. Razorpay Dashboard
+webhook registration and a signed-in hosted checkout test still need confirmation.
 
 A second source checkpoint includes the OAuth fix:
 `checkpoint/pre-razorpay-with-auth-fix-2026-10-16` (commit `48da9f1`).
@@ -135,10 +136,9 @@ onboarding installs. AI Coach verifies access before calling the model. Form
 Inspection checks access before opening the camera; its on-device code remains
 client-side and is not a secure boundary against modified clients.
 
-The checked-in Firestore rules prevent direct client split creation and all
-billing writes. Deploy the new API/client and configure its server environment
-before deploying these rules. The old app still creates splits directly and
-must be refreshed after the rules change. Rules are currently staged locally.
+The deployed Firestore rules prevent direct client split creation and all
+billing writes. The old app still creates splits directly, so users with a cached
+older version must refresh after the rules change.
 
 Cancellation stops renewals, retaining already-paid access until its expiry.
 Account deletion cancels the mandate immediately before removing user data.
@@ -190,6 +190,9 @@ sandbox payment also verified removal of the Coach badge.
 Billing tests cover paid invoice matching, signature binding, free quota,
 expiry, cancellation idempotency, superseded events, and cancellation before
 account deletion. Use `npm run test:billing`. Client export checks confirm billing
-secrets are not present in browser assets. Security Rules syntax validation
-passes; production rules deployment and end-to-end rule denial checks remain
-part of hosted rollout. Physical iOS Apple Health launch is still unverified.
+secrets are not present in browser assets. Security Rules syntax validation and
+production rules deployment passed. The live site returned HTTP 200, while
+unauthenticated billing/split requests and an invalidly signed webhook returned
+HTTP 401. Signed-in hosted checkout, Razorpay Dashboard webhook delivery, and
+end-to-end rule denial checks remain. Physical iOS Apple Health launch is still
+unverified.

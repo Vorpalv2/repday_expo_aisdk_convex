@@ -937,7 +937,7 @@ Do not jump straight from “checkout opened locally” to accepting live custom
 First make the hosted app work with simulated payments.
 
 1. **Publish the implementation.** Commit and push the payment modules and client
-   changes when they are ready. This documentation-only commit does not do that.
+   changes when they are ready.
 2. **Configure the host.** Add the Firebase admin JSON, Razorpay Test Mode key pair,
    plan ID, webhook secret, and Redis credentials as server environment variables.
    Local `.env.local` values do not automatically appear on your hosting service.
