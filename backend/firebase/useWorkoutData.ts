@@ -5,7 +5,8 @@ import {
   arrayUnion,
   deleteDoc,
   doc,
-  getDocs,
+  getDocsFromCache,
+  getDocsFromServer,
   limit,
   onSnapshot,
   orderBy,
@@ -38,6 +39,7 @@ const makeInitialSettings = (uid: string): WorkoutSettings => ({
   country: 'India',
   timeZone: 'Asia/Kolkata',
   theme: 'light',
+  liveSyncEnabled: true,
   activityDefaultCollapsed: true,
   trainingGoal: 'strength',
   restPreferenceSeconds: 90,
@@ -48,7 +50,7 @@ const splitDocumentId = (clientId: string) => encodeURIComponent(clientId);
 const historyDocumentId = (clientId: string) => encodeURIComponent(clientId);
 const savedSettingsKeys = [
   'initialized', 'weeklyPlan', 'restDays', 'autoRestNextDate', 'focusDraft',
-  'selectedSessionId', 'country', 'timeZone', 'theme', 'activityDefaultCollapsed',
+  'selectedSessionId', 'country', 'timeZone', 'theme', 'liveSyncEnabled', 'activityDefaultCollapsed',
   'trainingGoal', 'restPreferenceSeconds', 'weightUnit', 'remindersEnabled',
 ] as const;
 const settingsSignature = (settings: Record<string, any>) => stableSerialize(
@@ -57,20 +59,23 @@ const settingsSignature = (settings: Record<string, any>) => stableSerialize(
 
 export type UseWorkoutDataOptions = {
   isAuthenticated: boolean;
+  hasPlusAccess: boolean;
 };
 
-export function useWorkoutData({ isAuthenticated }: UseWorkoutDataOptions): WorkoutBackendBindings {
+export function useWorkoutData({ isAuthenticated, hasPlusAccess }: UseWorkoutDataOptions): WorkoutBackendBindings {
   const uid = isAuthenticated ? auth?.currentUser?.uid ?? null : null;
   const [remoteSettings, setRemoteSettings] = useState<WorkoutSettings | null>();
   const [remoteSplits, setRemoteSplits] = useState<WorkoutBackendBindings['remoteSplits']>();
   const [remoteHistoryResults, setRemoteHistoryResults] = useState<WorkoutRecord[]>([]);
   const [remoteHistoryStatus, setRemoteHistoryStatus] = useState('LoadingFirstPage');
+  const [remoteCollectionsVersion, setRemoteCollectionsVersion] = useState(0);
   const [remoteDataError, setRemoteDataError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const historyCursor = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const olderHistory = useRef<WorkoutRecord[]>([]);
   const remoteSettingsSignature = useRef<{ uid: string; value: string } | null>(null);
   const settingsWritesInFlight = useRef(new Set<string>());
+  const liveSyncEnabled = hasPlusAccess && remoteSettings?.liveSyncEnabled !== false;
 
   useEffect(() => {
     if (!uid || !db) {
@@ -87,12 +92,54 @@ export function useWorkoutData({ isAuthenticated }: UseWorkoutDataOptions): Work
     }
 
     const settingsRef = doc(db, 'users', uid, 'settings', 'main');
-    const splitsRef = collection(db, 'users', uid, 'splits');
-    const historyRef = collection(db, 'users', uid, 'history');
+    const splitsQuery = query(collection(db, 'users', uid, 'splits'), orderBy('position', 'asc'));
+    const firstHistoryQuery = query(collection(db, 'users', uid, 'history'), orderBy('startedAt', 'desc'), limit(7));
     setRemoteDataError(null);
 
-    const unsubscribers = [
-      onSnapshot(settingsRef, (snapshot) => {
+    const applySplits = (snapshot: { docs: { data: () => any }[] }) => {
+      const sessions = snapshot.docs.map((item) => {
+        const split = item.data();
+        const session = split.data;
+        const targets = split.setTargets ?? {};
+        if (!session?.moves || !Object.keys(targets).length) return session;
+        return {
+          ...session,
+          moves: session.moves.map((move: any) => {
+            const moveTargets = Object.entries(targets)
+              .map(([key, value]: [string, any]) => ({ key, value }))
+              .filter(({ value }) => value?.moveKey === move.key)
+              .sort((a, b) => a.value.setIndex - b.value.setIndex);
+            if (!moveTargets.length) return move;
+            const sets = move.sets.map((set: any) => ({ ...set }));
+            for (const { value } of moveTargets) {
+              while (sets.length <= value.setIndex) {
+                const previous = sets.at(-1);
+                sets.push({ weight: previous?.weight ?? '0', reps: previous?.reps ?? '10', done: false });
+              }
+              sets[value.setIndex] = {
+                ...sets[value.setIndex],
+                weight: String(value.weight ?? sets[value.setIndex].weight),
+                reps: String(value.reps ?? sets[value.setIndex].reps),
+                done: false,
+              };
+            }
+            return { ...move, sets };
+          }),
+        };
+      });
+      setRemoteSplits({ userId: uid, sessions });
+    };
+
+    const applyFirstHistoryPage = (snapshot: { docs: QueryDocumentSnapshot<DocumentData>[]; size: number }) => {
+      historyCursor.current = snapshot.docs.at(-1) ?? null;
+      const firstPage = snapshot.docs.map((item) => item.data().data as WorkoutRecord);
+      const firstIds = new Set(firstPage.map((item) => item.id));
+      const older = olderHistory.current.filter((item) => !firstIds.has(item.id));
+      setRemoteHistoryResults([...firstPage, ...older]);
+      setRemoteHistoryStatus(snapshot.size < 7 ? 'Exhausted' : 'CanLoadMore');
+    };
+
+    const unsubscribeSettings = onSnapshot(settingsRef, (snapshot) => {
         const authUser = auth?.currentUser;
         const settings = {
           ...makeInitialSettings(uid),
@@ -103,54 +150,106 @@ export function useWorkoutData({ isAuthenticated }: UseWorkoutDataOptions): Work
         } as WorkoutSettings;
         remoteSettingsSignature.current = { uid, value: settingsSignature(settings) };
         setRemoteSettings(settings);
-      }, (error) => { console.warn('[Repday] Settings listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
-      onSnapshot(query(splitsRef, orderBy('position', 'asc')), (snapshot) => {
-        const sessions = snapshot.docs.map((item) => {
-          const split = item.data();
-          const session = split.data;
-          const targets = split.setTargets ?? {};
-          if (!session?.moves || !Object.keys(targets).length) return session;
-          return {
-            ...session,
-            moves: session.moves.map((move: any) => {
-              const moveTargets = Object.entries(targets)
-                .map(([key, value]: [string, any]) => ({ key, value }))
-                .filter(({ value }) => value?.moveKey === move.key)
-                .sort((a, b) => a.value.setIndex - b.value.setIndex);
-              if (!moveTargets.length) return move;
-              const sets = move.sets.map((set: any) => ({ ...set }));
-              for (const { value } of moveTargets) {
-                while (sets.length <= value.setIndex) {
-                  const previous = sets.at(-1);
-                  sets.push({ weight: previous?.weight ?? '0', reps: previous?.reps ?? '10', done: false });
-                }
-                sets[value.setIndex] = {
-                  ...sets[value.setIndex],
-                  weight: String(value.weight ?? sets[value.setIndex].weight),
-                  reps: String(value.reps ?? sets[value.setIndex].reps),
-                  done: false,
-                };
-              }
-              return { ...move, sets };
-            }),
-          };
-        });
-        setRemoteSplits({ userId: uid, sessions });
-      }, (error) => { console.warn('[Repday] Splits listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
-      onSnapshot(query(historyRef, orderBy('startedAt', 'desc'), limit(7)), (snapshot) => {
-        historyCursor.current = snapshot.docs.at(-1) ?? null;
-        const firstPage = snapshot.docs.map((item) => item.data().data as WorkoutRecord);
-        const firstIds = new Set(firstPage.map((item) => item.id));
-        const older = olderHistory.current.filter((item) => !firstIds.has(item.id));
-        setRemoteHistoryResults([...firstPage, ...older]);
-        setRemoteHistoryStatus(snapshot.size < 7 ? 'Exhausted' : 'CanLoadMore');
-      }, (error) => { console.warn('[Repday] History listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
-    ];
+      }, (error) => { console.warn('[Repday] Settings listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); });
+
+    let cancelled = false;
+    const loadCollections = async () => {
+      // Render Firestore's persisted result first. This uses local IndexedDB and
+      // deliberately does not recreate a network listener after a reconnect.
+      const cacheResults = await Promise.allSettled([
+        getDocsFromCache(splitsQuery),
+        getDocsFromCache(firstHistoryQuery),
+      ]);
+      if (cancelled) return;
+      if (cacheResults[0].status === 'fulfilled') applySplits(cacheResults[0].value);
+      if (cacheResults[1].status === 'fulfilled') applyFirstHistoryPage(cacheResults[1].value);
+
+      // A signed-in app session gets one explicit cloud sync. Later live updates
+      // are local-first writes or user-initiated history queries, never listeners.
+      const serverResults = await Promise.allSettled([
+        getDocsFromServer(splitsQuery),
+        getDocsFromServer(firstHistoryQuery),
+      ]);
+      if (cancelled) return;
+      const splitResult = serverResults[0];
+      const historyResult = serverResults[1];
+      const splitsLoaded = splitResult.status === 'fulfilled';
+      const historyLoaded = historyResult.status === 'fulfilled';
+      if (splitResult.status === 'fulfilled') applySplits(splitResult.value);
+      if (historyResult.status === 'fulfilled') applyFirstHistoryPage(historyResult.value);
+      if (splitsLoaded || historyLoaded) setRemoteCollectionsVersion((version) => version + 1);
+      if (!splitsLoaded && !historyLoaded && cacheResults.every((result) => result.status === 'rejected')) {
+        setRemoteDataError('Could not connect to your workout data. Check your connection and try again.');
+      }
+    };
+    void loadCollections();
 
     return () => {
-      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      cancelled = true;
+      unsubscribeSettings();
     };
   }, [uid, retryCount]);
+
+  useEffect(() => {
+    if (!uid || !db || !liveSyncEnabled) return;
+    const splitsQuery = query(collection(db, 'users', uid, 'splits'), orderBy('position', 'asc'));
+    const firstHistoryQuery = query(collection(db, 'users', uid, 'history'), orderBy('startedAt', 'desc'), limit(7));
+    const applySplits = (snapshot: { docs: { data: () => any }[] }) => {
+      const sessions = snapshot.docs.map((item) => {
+        const split = item.data();
+        const session = split.data;
+        const targets = split.setTargets ?? {};
+        if (!session?.moves || !Object.keys(targets).length) return session;
+        return {
+          ...session,
+          moves: session.moves.map((move: any) => {
+            const moveTargets = Object.entries(targets)
+              .map(([key, value]: [string, any]) => ({ key, value }))
+              .filter(({ value }) => value?.moveKey === move.key)
+              .sort((a, b) => a.value.setIndex - b.value.setIndex);
+            if (!moveTargets.length) return move;
+            const sets = move.sets.map((set: any) => ({ ...set }));
+            for (const { value } of moveTargets) {
+              while (sets.length <= value.setIndex) {
+                const previous = sets.at(-1);
+                sets.push({ weight: previous?.weight ?? '0', reps: previous?.reps ?? '10', done: false });
+              }
+              sets[value.setIndex] = {
+                ...sets[value.setIndex],
+                weight: String(value.weight ?? sets[value.setIndex].weight),
+                reps: String(value.reps ?? sets[value.setIndex].reps),
+                done: false,
+              };
+            }
+            return { ...move, sets };
+          }),
+        };
+      });
+      setRemoteSplits({ userId: uid, sessions });
+      setRemoteCollectionsVersion((version) => version + 1);
+    };
+    const applyHistory = (snapshot: { docs: QueryDocumentSnapshot<DocumentData>[]; size: number }) => {
+      historyCursor.current = snapshot.docs.at(-1) ?? null;
+      const firstPage = snapshot.docs.map((item) => item.data().data as WorkoutRecord);
+      const firstIds = new Set(firstPage.map((item) => item.id));
+      const older = olderHistory.current.filter((item) => !firstIds.has(item.id));
+      setRemoteHistoryResults([...firstPage, ...older]);
+      setRemoteHistoryStatus(snapshot.size < 7 ? 'Exhausted' : 'CanLoadMore');
+      setRemoteCollectionsVersion((version) => version + 1);
+    };
+    const unsubscribeSplits = onSnapshot(splitsQuery, applySplits, (error) => {
+      console.warn('[Repday] Live split sync failed', error);
+      setRemoteDataError('Could not keep your workout splits live-synced.');
+    });
+    const unsubscribeHistory = onSnapshot(firstHistoryQuery, applyHistory, (error) => {
+      console.warn('[Repday] Live history sync failed', error);
+      setRemoteDataError('Could not keep your workout history live-synced.');
+    });
+    return () => {
+      unsubscribeSplits();
+      unsubscribeHistory();
+    };
+  }, [uid, liveSyncEnabled]);
 
   const retryRemoteData = useCallback(() => {
     setRemoteDataError(null);
@@ -164,7 +263,7 @@ export function useWorkoutData({ isAuthenticated }: UseWorkoutDataOptions): Work
     if (!uid || !db || !historyCursor.current || remoteHistoryStatus !== 'CanLoadMore') return;
     setRemoteHistoryStatus('LoadingMore');
     try {
-      const next = await getDocs(query(
+      const next = await getDocsFromServer(query(
         collection(db, 'users', uid, 'history'),
         orderBy('startedAt', 'desc'),
         startAfter(historyCursor.current),
@@ -192,7 +291,7 @@ export function useWorkoutData({ isAuthenticated }: UseWorkoutDataOptions): Work
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
     try {
-      const result = await getDocs(query(
+      const result = await getDocsFromServer(query(
         collection(db, 'users', uid, 'history'),
         where('startedAt', '>=', start.getTime()),
         where('startedAt', '<', end.getTime()),
@@ -281,7 +380,7 @@ export function useWorkoutData({ isAuthenticated }: UseWorkoutDataOptions): Work
 
   const saveSettings = useCallback(async (settings: {
     weeklyPlan: Record<number, string | null>; restDays: Record<string, boolean | 'auto'>; autoRestNextDate: string | null; focusDraft: any; selectedSessionId: string | null;
-    country: string; timeZone: string; theme: 'light' | 'dark' | 'cyberpunk'; activityDefaultCollapsed: boolean;
+    country: string; timeZone: string; theme: 'light' | 'dark' | 'cyberpunk'; liveSyncEnabled: boolean; activityDefaultCollapsed: boolean;
     trainingGoal: 'strength' | 'muscle' | 'fitness' | 'endurance'; restPreferenceSeconds: 60 | 90 | 120 | 180;
     weightUnit: 'kg' | 'lb'; remindersEnabled: boolean;
   }) => {
@@ -310,6 +409,7 @@ export function useWorkoutData({ isAuthenticated }: UseWorkoutDataOptions): Work
     remoteSplits,
     remoteHistoryResults,
     remoteHistoryStatus,
+    remoteCollectionsVersion,
     loadMoreHistory,
     loadHistoryDate,
     syncSplits,

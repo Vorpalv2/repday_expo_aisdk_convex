@@ -15,7 +15,7 @@ The changes address four problems:
 3. Avoid realtime listeners for data that does not need live cross-device updates.
 4. Preserve a responsive app when the network is slow or temporarily unavailable.
 
-The resulting design keeps account data such as settings and saved splits synchronized, while transient workout state remains on the device until a workout is completed.
+The resulting design keeps the small settings document synchronized in realtime, while splits, history, and transient workout state use local-first data on the device. Repday Plus members may opt into live split/history synchronization.
 
 ## Firestore billing model used by this design
 
@@ -44,37 +44,36 @@ flowchart TD
     Active -->|Finish workout| HistoryWrite[One completed history document]
 
     Firestore[(Cloud Firestore)] --> SettingsListener[Settings listener]
-    Firestore --> SplitsListener[Splits listener]
-    Firestore --> HistoryListener[Latest 7 history documents]
+    Firestore --> StartupSync[One-time split and latest-7 history sync]
     SettingsListener --> State
-    SplitsListener --> State
-    HistoryListener --> State
+    StartupSync --> State
 
     WebCache[(Persistent web cache)] <--> Firestore
     WebCache <--> SettingsListener
-    WebCache <--> SplitsListener
-    WebCache <--> HistoryListener
+    WebCache --> StartupSync
 ```
 
-## 1. Stable account-level listeners
+## 1. Stable account-level Firestore access
 
 `backend/firebase/useWorkoutData.ts` owns the account data subscriptions. The hook is called once by the main `WorkoutApp` component, and its results are passed to the screens that need them. Child screens do not create their own copies of these listeners.
 
-There are three intentional realtime listeners:
+There is one always-on realtime listener, plus an optional Plus-only pair:
 
-| Listener | Firestore path/query | Purpose |
+| Access pattern | Firestore path/query | Purpose |
 | --- | --- | --- |
 | Settings | `users/{uid}/settings/main` | Theme, weekly plan, preferences, date-specific schedule overrides, and other account settings |
-| Splits | `users/{uid}/splits`, ordered by `position` | Saved workout splits and their set targets |
-| Recent history | `users/{uid}/history`, ordered by `startedAt desc`, limited to 7 | The default seven-day workout history and recent activity |
+| Startup split sync | `users/{uid}/splits`, ordered by `position` | Fetches saved splits once when an authenticated app session starts |
+| Startup history sync | `users/{uid}/history`, ordered by `startedAt desc`, limited to 7 | Fetches the default recent history once when an authenticated app session starts |
+| Plus live split sync | `users/{uid}/splits`, ordered by `position` | Optional instant updates across devices |
+| Plus live history sync | `users/{uid}/history`, ordered by `startedAt desc`, limited to 7 | Optional instant recent-history updates across devices |
 
-The listener effect depends on the authenticated user ID and an explicit retry counter. Normal tab navigation does not recreate it. Cleanup unsubscribes all three listeners when the user changes, signs out, retries the connection, or the owning component unmounts.
+Normal navigation does not rerun these operations. The settings listener is cleaned up when the user changes, signs out, retries the connection, or the owning component unmounts. Plus live listeners start only when the saved **Live cross-device sync** preference is on, and unsubscribe immediately when it is turned off or Plus access ends.
 
 ### Why this matters
 
-If every screen called a hook that created its own `onSnapshot`, the same document change could be delivered to multiple active subscriptions and billed multiple times. A single owner avoids duplicate subscriptions within one running app instance.
+If every screen called a hook that created its own `onSnapshot`, the same document change could be delivered to multiple active subscriptions and billed multiple times. Repday keeps the one settings listener at the account level and uses bounded one-time queries for the larger collections.
 
-Each device or browser session still has its own connection. One laptop and one phone signed into the same account are separate clients and may each receive a billed read when a watched document changes.
+Each device or browser session still has its own connection. One laptop and one phone signed into the same account are separate clients and may each receive a billed settings read when that document changes.
 
 ## 2. Preference changes are drafted locally
 
@@ -99,19 +98,24 @@ The settings listener will normally deliver the committed version back to the cl
 
 Onboarding can still collect and preview several choices locally. It does not need a Firestore write after every onboarding page.
 
-## 3. Workout history reads are bounded
+## 3. Splits and workout history are cache-first
 
-The previous live history query requested up to 30 documents. The current listener requests only the latest seven:
+On signed-in startup, Repday first asks Firestore for its persisted local result, then performs one explicit server query for splits and for the latest seven history records:
 
 ```ts
-query(historyRef, orderBy('startedAt', 'desc'), limit(7))
+getDocsFromCache(splitsQuery)
+getDocsFromCache(latestHistoryQuery)
+getDocsFromServer(splitsQuery)
+getDocsFromServer(latestHistoryQuery)
 ```
 
-This matches the default seven-day history view. Older records are fetched only when the user asks for a larger range.
+The cache calls do not contact Firestore. The server calls are deliberate startup synchronization, not snapshot listeners. For cache-only users, locking an iPhone, reconnecting after more than 30 minutes, or resuming a suspended browser does not recreate split/history queries because none are subscribed. A Plus member who enables live sync intentionally accepts the normal realtime-listener reconnect behavior.
+
+After a local split edit or completed workout, the current device updates React state and AsyncStorage immediately, then writes the changed cloud document. It does not read that document back. A second device sees cached data until it performs its own launch sync or an explicit history query.
 
 ### Pagination
 
-`loadMoreHistory(count)` starts after the current cursor and requests only the additional number of documents required. Results are merged into local state without duplicating records already supplied by the live first page.
+`loadMoreHistory(count)` starts after the current cursor and requests only the additional number of documents required. Results are merged into local state without duplicating records already in the cache.
 
 - Default range: latest 7 documents.
 - Larger ranges: fetch additional pages on demand.
@@ -127,7 +131,7 @@ If one workout is stored per history document:
 
 | Action | Approximate document reads |
 | --- | ---: |
-| Open the app with at least 7 history records | Up to 7 for the live first page |
+| Start or reload the app with at least 7 history records | Up to 7 for the one-time first-page sync |
 | Expand from 7 to 14 records | Up to 7 additional reads |
 | Expand from 14 to 30 records | Up to 16 additional reads |
 | Select one date containing one workout | Usually 1 returned document read |
@@ -181,7 +185,7 @@ Redundant overrides are removed when an assignment matches the recurring base pl
 - Settings listener receives the change: usually 1 settings-document read/delivery.
 - Re-rendering the bar and calendar from React state: 0 extra Firestore operations.
 
-Viewing the workout-history screen is separate. The existing seven-document history listener supplies its default data; a swap itself does not write workout history. A history document is created only when the user finishes a workout.
+Viewing the workout-history screen is separate. The cached first page supplies its default data; a swap itself does not write workout history. A history document is created only when the user finishes a workout.
 
 ## 7. Profile photos use Google Auth data
 
@@ -227,6 +231,7 @@ Native platforms currently create Firestore with `getFirestore(app)`. The explic
 AsyncStorage serves a separate purpose:
 
 - Firebase Auth uses AsyncStorage persistence on native so the user remains signed in.
+- Repday persists the current device's split and workout-history view in AsyncStorage so a completed workout or split edit is visible immediately without a Firestore readback.
 - Repday stores its active workout recovery state locally in AsyncStorage.
 - The selected AI Coach model is also stored locally.
 
@@ -240,7 +245,7 @@ This is primarily a product entitlement decision. The database savings come from
 
 ## Operation examples
 
-The following estimates assume one signed-in browser, active relevant listeners, a warm app instance, and no retries. They are intended for reasoning about relative cost, not as an invoice prediction.
+The following estimates assume one signed-in browser, a warm app instance, and no retries. They are intended for reasoning about relative cost, not as an invoice prediction.
 
 | User flow | Writes | Reads/deliveries caused by the flow |
 | --- | ---: | ---: |
@@ -248,12 +253,12 @@ The following estimates assume one signed-in browser, active relevant listeners,
 | Change five preferences, then Save | 1 | Usually 1 settings delivery |
 | Confirm today/tomorrow swap | 1 | Usually 1 settings delivery |
 | Edit ten sets during an unfinished workout | 0 | 0 Firestore operations |
-| Finish that workout | 1 history write | Usually 1 recent-history listener delivery if it enters the top seven |
+| Finish that workout | 1 history write | 0 readback on the current device |
 | Open or return to Profile | 0 | 0 profile-photo document reads |
-| Open default history | 0 | Up to 7 initial history reads |
+| Start/reload the app with default history | 0 | Up to 7 one-time history reads |
 | Load seven older workouts | 0 | Up to 7 additional history reads |
 
-If the same account is open on two connected devices, a settings or split change may be delivered to both clients. One document write can therefore be followed by more than one listener read across all active devices.
+If the same account is open on two connected devices, a settings change may be delivered to both clients. Split and history changes do not automatically reach the second device; it receives them at its next startup sync or when it explicitly queries history.
 
 ## Monitoring and diagnosis
 
@@ -267,7 +272,7 @@ When usage rises unexpectedly:
 6. Check reconnect loops, retries, Fast Refresh, multiple browser tabs, automated tests, and old deployed clients.
 7. Reproduce with one device and one tab, then compare the query metrics again.
 
-The current intentional `onSnapshot` calls are limited to settings, splits, and the latest seven history documents. Any new realtime listener should be justified by a user-visible need for immediate cross-device updates.
+The current always-on `onSnapshot` call is limited to the settings document. The two split/history listeners are controlled by the Plus live-sync preference. Any new realtime listener should be justified by a user-visible need for immediate cross-device updates.
 
 ## Verification checklist
 
@@ -296,14 +301,14 @@ The current intentional `onSnapshot` calls are limited to settings, splits, and 
 - Load the app once online, then reload with a temporarily unavailable network and confirm cached account data can appear.
 - Inspect browser storage to confirm Firestore persistence data exists.
 - Open two tabs and confirm they operate without persistence ownership errors.
-- Restore the network and confirm listeners reconcile with the server.
+- Restore the network and confirm the next startup sync obtains fresh split/history data.
 
 ## Relevant files
 
 | File | Responsibility |
 | --- | --- |
 | `backend/firebase/client.ts` | Firebase initialization and persistent multi-tab web cache |
-| `backend/firebase/useWorkoutData.ts` | Stable listeners, paginated history, and deduplicated settings writes |
+| `backend/firebase/useWorkoutData.ts` | Settings listener, cache-first split/history sync, paginated history, and deduplicated settings writes |
 | `app/index.tsx` | Local preference draft, Save/Cancel UI, local active workout state, history ranges, Plus gate, and swap flow |
 | `lib/restDays.ts` | Date keys, effective schedule calculation, and temporary schedule swaps |
 | `backend/firebase/trainingPlans.ts` | Final generated-plan installation |

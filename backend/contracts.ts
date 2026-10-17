@@ -67,6 +67,8 @@ export type WorkoutSettings = {
   country?: string;
   timeZone?: string;
   theme?: WorkoutTheme;
+  /** Plus-only preference: keep splits and recent history synchronized live across devices. */
+  liveSyncEnabled?: boolean;
   activityDefaultCollapsed?: boolean;
   trainingGoal?: TrainingGoal;
   restPreferenceSeconds?: 60 | 90 | 120 | 180;
@@ -82,6 +84,8 @@ export interface WorkoutBackendBindings {
   remoteSplits: { userId?: string; sessions: Session[] } | null | undefined;
   remoteHistoryResults: WorkoutRecord[];
   remoteHistoryStatus: string;
+  /** Changes only after an explicit startup cloud sync for splits/history. */
+  remoteCollectionsVersion: number;
   loadMoreHistory: (count: number) => void;
   loadHistoryDate: (timestamp: number) => Promise<void>;
   syncSplits: (args: { items: Session[] }) => Promise<unknown>;
@@ -100,6 +104,7 @@ export interface WorkoutBackendBindings {
     country: string;
     timeZone: string;
     theme: WorkoutTheme;
+    liveSyncEnabled: boolean;
     activityDefaultCollapsed: boolean;
     trainingGoal: TrainingGoal;
     restPreferenceSeconds: 60 | 90 | 120 | 180;
