@@ -1,6 +1,6 @@
 # Production and configuration
 
-Repday is an Expo app whose web build includes Expo Router API routes. EAS Hosting serves the production web app and API routes. Firebase handles identity, user data, and profile-photo storage; Vercel AI Gateway handles model requests; Upstash Redis holds AI rate-limit counters.
+Repday is an Expo app whose web build includes Expo Router API routes. EAS Hosting serves the production web app and API routes. Firebase handles identity and user data; Google sign-in supplies the account photo; Vercel AI Gateway handles model requests; Upstash Redis holds AI rate-limit counters.
 
 ```mermaid
 flowchart LR
@@ -8,7 +8,7 @@ flowchart LR
     B --> C[Firebase Auth token verification]
     B --> D[Upstash Redis rate limit]
     B --> E[Vercel AI Gateway]
-    A --> F[Firebase Auth, Firestore, Storage]
+    A --> F[Firebase Auth and Firestore]
     G[Local export and EAS deploy] --> B
 ```
 
@@ -27,7 +27,6 @@ flowchart LR
 | Expo/EAS Hosting | Serves web assets and runs `/api/coach` and `/api/analyze-workout`. |
 | Firebase Authentication | Email/password and Google identity; issues ID tokens. |
 | Firestore | UID-scoped settings, splits, history, and active-session documents. See [Firestore model](../backend/firestore-data-model.md). |
-| Firebase Storage | UID-scoped profile photo bytes. |
 | Upstash Redis | Per-user, per-feature request counters checked before AI Gateway. See [rate-limit internals](<../system design/ai-rate-limiting.md>). |
 | Vercel AI Gateway | Routes approved requests to the configured model. Provider credentials remain server-side. |
 
@@ -43,7 +42,7 @@ The API route also reads Firebase's public web API key to verify an ID token wit
 
 ## Security rules and deploy boundaries
 
-`firestore.rules` allows a signed-in user to read/write only under `users/{theirUid}`. `storage.rules` applies the same owner check and constrains profile image size/type. `firebase.json` points Firebase CLI to these rules and configures Email/Password and Google sign-in. Updating Firebase rules/provider settings is a Firebase deployment/configuration action separate from deploying the EAS web/API app.
+`firestore.rules` allows a signed-in user to read/write only under `users/{theirUid}`. `firebase.json` points Firebase CLI to the database rules and configures Email/Password and Google sign-in. `storage.rules` remains only for cleanup compatibility with profile images uploaded by older app versions. Updating Firebase rules/provider settings is a Firebase deployment/configuration action separate from deploying the EAS web/API app.
 
 Production server credentials for EAS Hosting are configured in EAS project environment variables with **Sensitive** visibility. Hosting does not support the **Secret** visibility type. Never commit `.env.local` or secret values. Rate-limit thresholds and failure behavior are documented in [AI request rate limiting](<../system design/ai-rate-limiting.md>).
 

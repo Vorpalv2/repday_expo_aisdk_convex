@@ -13,7 +13,10 @@ All user-owned Firestore data is scoped beneath `users/{uid}`:
 - `settings/main`
 - `splits/{splitId}`
 - `history/{workoutId}`
-- `activeWorkouts/current` and its `sets/{moveIndex_setIndex}` subcollection
-- `profilePhotos/current` (the image itself is in Cloud Storage)
+- legacy `profilePhotos/current` data, when present, is retained only for account-deletion cleanup
+
+Unfinished workouts are intentionally stored only in AsyncStorage on the current device. Firestore receives a history document when the workout finishes. Old `activeWorkouts` documents may still exist for legacy accounts and are removed during account deletion, but the app no longer reads or writes them.
+
+On web, Firestore uses its IndexedDB-backed persistent local cache with multi-tab coordination. Cached documents can be reused across reloads and tabs when the SDK can satisfy a request locally. Native active-workout recovery continues to use AsyncStorage; the Firebase JavaScript SDK does not provide the same IndexedDB cache there.
 
 The Firestore and Storage rules at the repository root restrict each user to their own path. Review rules before deploying them to a production Firebase project.

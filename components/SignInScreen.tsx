@@ -246,7 +246,7 @@ export function SignInScreen({ mode = 'auth', onAuthAttempt, onExistingUser, onN
 
     switch (currentStep.key) {
       case 'theme': return <View style={styles.optionList}>{([
-        ['light', 'Light', 'Clean white and charcoal'], ['dark', 'Dark', 'Easy on the eyes'], ['cyberpunk', 'Cyberpunk 2077', 'Neon blue on game-inspired yellow'],
+        ['light', 'Light', 'Clean white and charcoal'], ['dark', 'Dark', 'Easy on the eyes'],
       ] as [ThemeId, string, string][]).map(([id, label, detail]) => <Pressable key={id} accessibilityRole="button" accessibilityState={{ selected: preferences.theme === id }} onPress={() => updatePreference('theme', id)} style={selectedOption(preferences.theme === id)}><View style={[styles.themeSample, { backgroundColor: PALETTES[id].bg, borderColor: PALETTES[id].border }]}><View style={{ width: 16, height: 5, borderRadius: 3, backgroundColor: PALETTES[id].blue }} /></View><View style={{ flex: 1 }}><Text style={[styles.choiceTitle, choiceText]}>{label}</Text><Text style={[styles.choiceDetail, { color: palette.muted }]}>{detail}</Text></View>{preferences.theme === id && <Text style={[styles.check, { color: palette.blue }]}>✓</Text>}</Pressable>)}</View>;
       case 'activity': return <View style={styles.optionList}>{[
         { value: true, label: 'Keep it compact', detail: 'Show the week at a glance' },

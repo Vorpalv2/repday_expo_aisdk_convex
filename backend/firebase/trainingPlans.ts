@@ -22,5 +22,5 @@ export async function installTrainingPlan(plan:GeneratedPlan, positionOffset=0, 
   const uid=auth?.currentUser?.uid;
   if(!uid||!db)throw new Error('Sign in before saving your plan.');
   const now=Date.now();
-  await billingRequest('/api/splits',{items:plan.sessions.map((item,index)=>({item,position:positionOffset+index})),settings:{...(startTrackingTimeZone?{autoRestStartedAt:now,autoRestNextDate:restDayKey(now,startTrackingTimeZone)}:{}),initialized:true,weeklyPlan:plan.weeklyPlan,focusDraft:null,selectedSessionId:plan.sessions[0].id,guidedPlan:{id:plan.id,templateId:plan.templateId,templateVersion:plan.templateVersion,preferences:plan.preferences,createdAt:now},updatedAt:now}});
+  await billingRequest('/api/splits',{items:plan.sessions.map((item,index)=>({item,position:positionOffset+index})),planMode:startTrackingTimeZone?'onboarding':'rebuild',settings:{...(startTrackingTimeZone?{autoRestStartedAt:now,autoRestNextDate:restDayKey(now,startTrackingTimeZone)}:{}),initialized:true,weeklyPlan:plan.weeklyPlan,focusDraft:null,selectedSessionId:plan.sessions[0].id,trainingGoal:plan.preferences.goal,guidedPlan:{id:plan.id,templateId:plan.templateId,templateVersion:plan.templateVersion,preferences:plan.preferences,createdAt:now},updatedAt:now}});
 }

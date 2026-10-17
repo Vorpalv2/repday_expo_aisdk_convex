@@ -204,9 +204,9 @@ Follow a predictable root `users/{uid}` and product-focused subcollections. Repd
 users/{uid}/settings/main
 users/{uid}/splits/{encodedSplitId}
 users/{uid}/history/{encodedHistoryId}
-users/{uid}/activeWorkouts/current
-users/{uid}/activeWorkouts/current/sets/{moveIndex}_{setIndex}
-users/{uid}/profilePhotos/current
+users/{uid}/activeWorkouts/current                         # legacy cleanup only
+users/{uid}/activeWorkouts/current/sets/{moveIndex}_{setIndex} # legacy cleanup only
+users/{uid}/profilePhotos/current                         # legacy cleanup only
 ```
 
 Translate the structure for a new domain, for example:
@@ -281,7 +281,7 @@ Use these files in the Repday repository to inspect exact behavior and refine me
 - `data/exercises.ts` — exercise catalog and art metadata.
 - `backend/contracts.ts` — app-facing auth/data types and domain contracts.
 - `backend/BackendProvider.tsx`, `backend/firebase/client.ts` — auth and SDK boundary.
-- `backend/firebase/useWorkoutData.ts` — Firestore subscriptions, writes, history pagination, and Storage profile photo flow.
+- `backend/firebase/useWorkoutData.ts` — Firestore subscriptions, writes, and history pagination. Profile images come from Google sign-in through Firebase Authentication.
 - `firestore.rules`, `storage.rules` — current UID-scoped authorization rules.
 - `app_design_flow/frontend/onboarding.md`, `app_design_flow/backend/firestore-data-model.md`, `app_design_flow/backend/local-and-cloud-sync.md`, and `app_design_flow/backend/auth-and-account-ownership.md` — current architecture and sync behavior.
 

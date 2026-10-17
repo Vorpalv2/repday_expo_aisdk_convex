@@ -1,6 +1,6 @@
 # Authentication and account ownership
 
-Repday uses Firebase Authentication for the signed-in identity. The Firebase UID is the boundary used to select the user's Firestore documents and authorize database and Storage access.
+Repday uses Firebase Authentication for the signed-in identity. The Firebase UID is the boundary used to select the user's Firestore documents and authorize database access.
 
 ```mermaid
 flowchart TD
@@ -30,11 +30,11 @@ flowchart TD
 
 ## Ownership and access
 
-Each account's data lives below `users/{uid}`. `firestore.rules` permits access only when the request is authenticated and `request.auth.uid == userId`. Profile images use `users/{uid}/profile/profile-image`; `storage.rules` applies the same UID check and limits uploads to images under 5 MB.
+Each account's data lives below `users/{uid}`. `firestore.rules` permits access only when the request is authenticated and `request.auth.uid == userId`. The Profile screen uses the Google account photo exposed by Firebase Authentication and does not upload a separate image.
 
 ## Account deletion
 
-Deletion requires recent authentication: password accounts re-enter their password; Google accounts reauthenticate through Google. Only after reauthentication succeeds does the client remove the profile image, nested active-workout set documents, the account's settings/splits/history/active-workout/profile-photo documents, and the user document. It then deletes the Firebase Auth user. Once the operation succeeds, the UI removes local keys beginning with `repday.`.
+Deletion requires recent authentication: password accounts re-enter their password; Google accounts reauthenticate through Google. Only after reauthentication succeeds does the client remove the account's settings, splits, history, active-workout data, and user document. It also attempts to remove legacy profile-photo metadata and image files created by older app versions. It then deletes the Firebase Auth user. Once the operation succeeds, the UI removes local keys beginning with `repday.`.
 
 The cloud cleanup spans multiple Firestore operations and is not one database transaction. If an operation fails partway through, the UI reports the failure and does not clear local data or delete the Auth user; some cloud documents may already have been removed.
 

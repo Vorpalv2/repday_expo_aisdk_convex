@@ -4,6 +4,8 @@
 **Service:** Cloud Firestore Standard database, `repday-expo`
 **Impact:** The app received Firestore `resource-exhausted` errors after exhausting the daily free-tier read and write allowance. Realtime data stopped loading reliably until the daily quota reset. The exact source of the full read and write totals has not been proven.
 
+The implemented follow-up architecture is documented in [Firestore optimizations and caching](./firestore-optimizations-and-caching.md).
+
 ## What users saw
 
 The browser console reported two Firestore messages:
@@ -33,7 +35,7 @@ Usage totals are cumulative for the reporting day. Deploying a code change does 
 
 1. We started with the browser error, which identified Firestore quota exhaustion rather than an authentication or UI problem.
 2. We checked the Firestore Usage dashboard and confirmed the read spike and daily totals.
-3. We searched the app for realtime listeners and found all six calls in `backend/firebase/useWorkoutData.ts`.
+3. We searched the app for realtime listeners and found six calls in `backend/firebase/useWorkoutData.ts` at the time of the incident.
 4. We inspected the lifecycle effect that created the listeners. Its dependency list included `tab` and `googlePhotoUrl`:
 
    ```ts
@@ -72,7 +74,7 @@ No automatic write loop capable of explaining 20,000 writes was found in this st
 
 ### 1. Core data subscription effect
 
-The effect for settings, splits, history, active workout, and active-workout sets now depends only on:
+The effect for settings, splits, and the first history page depends only on:
 
 ```ts
 [uid, retryCount]
@@ -84,19 +86,15 @@ Those listeners now remain active while the same signed-in user is using the app
 - the user explicitly presses the retry action; or
 - the component containing the hook unmounts.
 
-### 2. Profile-photo subscription effect
+The obsolete active-workout parent and set listeners were removed. Unfinished workout state now remains in AsyncStorage on the current device, and Firestore receives a history document only after the workout finishes.
 
-The profile-photo document has its own effect:
+### 2. Profile photo no longer uses Firestore
 
-```ts
-[uid, tab, googlePhotoUrl]
-```
-
-It subscribes only on the Profile tab and is cleaned up when the user leaves that tab. If the listener fails, the app falls back to the Firebase Auth Google photo URL and logs a warning without breaking the core data connection.
+The Profile screen now renders the Google photo URL supplied by Firebase Authentication. The upload control, profile-photo metadata subscription, and related Firestore read were removed. Account deletion still cleans up legacy profile-photo data created by older app versions.
 
 ## Expected result
 
-Moving between Home, Progress, Profile, and Search should no longer resubscribe to the full settings, splits, history, and active-workout data set. This reduces avoidable document reads caused by navigation.
+Moving between Home, Progress, Profile, and Search does not resubscribe to settings, splits, or history. The history listener now starts with seven records, active-workout listeners no longer exist, and opening Profile does not read a profile-photo document.
 
 The change does not change what data the app needs to load at sign-in, nor does it remove reads caused by genuine document updates. It specifically removes repeated initial reads caused by reopening the same listeners on tab changes.
 
@@ -111,6 +109,9 @@ A second code audit found several paths that spent Firestore operations when the
 - reuses the billing status already read by `/api/billing/access`, avoiding a second account read in that endpoint;
 - uses the loaded billing status to gate AI Coach and Form Inspection in the UI instead of making an extra access request for every action;
 - caches server entitlement reads in Redis for up to four hours, never past the known paid-through time, and invalidates the cache after webhook, checkout, and cancellation updates. Free and complimentary account entries have a five-minute cache lifetime.
+- no longer rewrites every split during account hydration to force the default rest duration onto existing exercises.
+- avoids a second automatic settings save after the user explicitly saves a preference draft.
+- enables Firestore's IndexedDB-backed persistent cache with multi-tab coordination on web, allowing eligible cached documents to survive reloads and be shared between tabs.
 
 AI Coach still checks access in its server endpoint, but a cache hit avoids a Firestore billing-document read. A cache miss falls back to Firestore. Split quota transactions still read the billing document directly to enforce the six-split limit atomically.
 
@@ -120,7 +121,7 @@ AI Coach still checks access in its server endpoint, but a cache hit avoids a Fi
 2. Sign in once and visit each main tab repeatedly.
 3. In browser logs, confirm that navigation does not show new core listener errors or reconnect loops.
 4. In the Firestore Usage dashboard, compare read growth during navigation with the prior behavior. Use a time range beginning after this fix was deployed.
-5. Review writes separately. The listener change addresses excess reads; a write spike requires its own trace through split, history, settings, and active-workout mutations.
+5. Review writes separately. The listener change addresses excess reads; a write spike requires its own trace through split, history, and settings mutations.
 6. In the Usage dashboard, enable the **Writes** series and note its spike time. Compare it with app/server request logs for `/api/splits`, `/api/billing`, and workout actions. If possible, inspect Cloud Monitoring's Firestore write metrics by operation and Firestore audit logs for the affected time window.
 
 ## Prevention guidelines
@@ -135,4 +136,4 @@ AI Coach still checks access in its server endpoint, but a cache hit avoids a Fi
 ## Related implementation
 
 - [Firestore adapter](/Users/aakash/Desktop/ai_projects/expo_workout_tracker/backend/firebase/useWorkoutData.ts)
-- [Firebase backend notes](/Users/aakash/Desktop/ai_projects/expo_workout_tracker/backend/firebase/README.md)
+- [Firebase backend notes](/Users/aakash/Desktop/ai_projects/expo_workout_tracker/backend/README.md)

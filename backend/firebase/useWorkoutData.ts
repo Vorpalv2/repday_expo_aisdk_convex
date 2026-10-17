@@ -4,9 +4,7 @@ import {
   collection,
   arrayUnion,
   deleteDoc,
-  deleteField,
   doc,
-  getDoc,
   getDocs,
   limit,
   onSnapshot,
@@ -15,15 +13,14 @@ import {
   setDoc,
   updateDoc,
   startAfter,
+  where,
   writeBatch,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { auth, db, storage } from './client';
+import { auth, db } from './client';
 import { stableSerialize } from '../../lib/stableSerialize';
 import type {
-  ActiveWorkoutSnapshot,
   WorkoutBackendBindings,
   WorkoutRecord,
   WorkoutSettings,
@@ -34,6 +31,7 @@ const makeInitialSettings = (uid: string): WorkoutSettings => ({
   initialized: false,
   weeklyPlan: {},
   restDays: {},
+  scheduleOverrides: {},
   autoRestNextDate: null,
   focusDraft: null,
   selectedSessionId: null,
@@ -45,17 +43,7 @@ const makeInitialSettings = (uid: string): WorkoutSettings => ({
   restPreferenceSeconds: 90,
   weightUnit: 'kg',
   remindersEnabled: false,
-  legacyActiveWorkout: null,
-  legacyWorking: null,
-  legacyRestEndsAt: null,
 });
-
-const stripWorkingSets = (working: any) => ({
-  ...working,
-  moves: working.moves.filter((move: any) => !move.activeSessionOnly).map((move: any) => ({ ...move, sets: [] })),
-});
-
-const setDocumentId = (moveIndex: number, setIndex: number) => `${moveIndex}_${setIndex}`;
 const splitDocumentId = (clientId: string) => encodeURIComponent(clientId);
 const historyDocumentId = (clientId: string) => encodeURIComponent(clientId);
 const savedSettingsKeys = [
@@ -69,41 +57,20 @@ const settingsSignature = (settings: Record<string, any>) => stableSerialize(
 
 export type UseWorkoutDataOptions = {
   isAuthenticated: boolean;
-  tab: string;
-  cloudOwnerId: string | null;
-  googlePhotoUrl: string | null;
 };
 
-export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWorkoutDataOptions): WorkoutBackendBindings {
+export function useWorkoutData({ isAuthenticated }: UseWorkoutDataOptions): WorkoutBackendBindings {
   const uid = isAuthenticated ? auth?.currentUser?.uid ?? null : null;
   const [remoteSettings, setRemoteSettings] = useState<WorkoutSettings | null>();
   const [remoteSplits, setRemoteSplits] = useState<WorkoutBackendBindings['remoteSplits']>();
   const [remoteHistoryResults, setRemoteHistoryResults] = useState<WorkoutRecord[]>([]);
   const [remoteHistoryStatus, setRemoteHistoryStatus] = useState('LoadingFirstPage');
-  const [remoteActiveWorkout, setRemoteActiveWorkout] = useState<ActiveWorkoutSnapshot | null>();
   const [remoteDataError, setRemoteDataError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>();
   const historyCursor = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const olderHistory = useRef<WorkoutRecord[]>([]);
-  const activeParentPayload = useRef<string | null>(null);
-  const activeSetRows = useRef<any[]>([]);
   const remoteSettingsSignature = useRef<{ uid: string; value: string } | null>(null);
   const settingsWritesInFlight = useRef(new Set<string>());
-
-  const withActiveSets = (working: any, rows: any[]) => {
-    if (!working) return null;
-    const byMove = new Map<number, any[]>();
-    for (const row of rows) byMove.set(row.moveIndex, [...(byMove.get(row.moveIndex) ?? []), row]);
-    return {
-      ...working,
-      moves: working.moves.map((move: any, moveIndex: number) => ({
-        ...move,
-        sets: (byMove.get(moveIndex) ?? []).sort((a, b) => a.setIndex - b.setIndex)
-          .map(({ weight, reps, done, addedDuringWorkout }) => ({ weight, reps, done, addedDuringWorkout: Boolean(addedDuringWorkout) })),
-      })),
-    };
-  };
 
   useEffect(() => {
     if (!uid || !db) {
@@ -111,12 +78,9 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
       setRemoteSplits(null);
       setRemoteHistoryResults([]);
       setRemoteHistoryStatus('Exhausted');
-      setRemoteActiveWorkout(null);
       setRemoteDataError(null);
       historyCursor.current = null;
       olderHistory.current = [];
-      activeParentPayload.current = null;
-      activeSetRows.current = [];
       remoteSettingsSignature.current = null;
       settingsWritesInFlight.current.clear();
       return;
@@ -125,8 +89,6 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     const settingsRef = doc(db, 'users', uid, 'settings', 'main');
     const splitsRef = collection(db, 'users', uid, 'splits');
     const historyRef = collection(db, 'users', uid, 'history');
-    const activeRef = doc(db, 'users', uid, 'activeWorkouts', 'current');
-    const activeSetsRef = collection(db, 'users', uid, 'activeWorkouts', 'current', 'sets');
     setRemoteDataError(null);
 
     const unsubscribers = [
@@ -175,47 +137,14 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
         });
         setRemoteSplits({ userId: uid, sessions });
       }, (error) => { console.warn('[Repday] Splits listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
-      onSnapshot(query(historyRef, orderBy('startedAt', 'desc'), limit(30)), (snapshot) => {
+      onSnapshot(query(historyRef, orderBy('startedAt', 'desc'), limit(7)), (snapshot) => {
         historyCursor.current = snapshot.docs.at(-1) ?? null;
         const firstPage = snapshot.docs.map((item) => item.data().data as WorkoutRecord);
         const firstIds = new Set(firstPage.map((item) => item.id));
         const older = olderHistory.current.filter((item) => !firstIds.has(item.id));
         setRemoteHistoryResults([...firstPage, ...older]);
-        setRemoteHistoryStatus(snapshot.size < 30 ? 'Exhausted' : 'CanLoadMore');
+        setRemoteHistoryStatus(snapshot.size < 7 ? 'Exhausted' : 'CanLoadMore');
       }, (error) => { console.warn('[Repday] History listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
-      onSnapshot(activeRef, (snapshot) => {
-        if (!snapshot.exists()) {
-          activeParentPayload.current = null;
-          activeSetRows.current = [];
-          setRemoteActiveWorkout({ userId: uid, sessionKey: null, activeWorkout: null, working: null, restEndsAt: null });
-          return;
-        }
-        const data = snapshot.data();
-        activeParentPayload.current = JSON.stringify({
-          sessionKey: data.sessionKey,
-          activeWorkout: data.activeWorkout,
-          working: data.working,
-          restEndsAt: data.restEndsAt ?? null,
-        });
-        setRemoteActiveWorkout((current) => ({
-          userId: uid,
-          sessionKey: String(data.sessionKey),
-          activeWorkout: data.activeWorkout ?? null,
-          working: withActiveSets(data.working, activeSetRows.current),
-          restEndsAt: data.restEndsAt ?? null,
-        }));
-      }, (error) => { console.warn('[Repday] Active workout listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
-      onSnapshot(activeSetsRef, (snapshot) => {
-        const rows = snapshot.docs.map((item) => item.data());
-        activeSetRows.current = rows;
-        setRemoteActiveWorkout((current) => {
-          if (!current?.working) return current;
-          return {
-            ...current,
-            working: withActiveSets(current.working, rows),
-          };
-        });
-      }, (error) => { console.warn('[Repday] Active set listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); }),
     ];
 
     return () => {
@@ -223,32 +152,11 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     };
   }, [uid, retryCount]);
 
-  useEffect(() => {
-    if (!uid || !db || tab !== 'Profile') {
-      setProfilePhotoUrl(null);
-      return;
-    }
-
-    const photoRef = doc(db, 'users', uid, 'profilePhotos', 'current');
-    return onSnapshot(
-      photoRef,
-      (snapshot) => {
-        const uploadedPhotoUrl = snapshot.exists() ? String(snapshot.data().downloadURL ?? '') || null : null;
-        setProfilePhotoUrl(uploadedPhotoUrl ?? googlePhotoUrl ?? null);
-      },
-      (error) => {
-        console.warn('[Repday] Profile photo listener failed', error);
-        setProfilePhotoUrl(googlePhotoUrl ?? null);
-      },
-    );
-  }, [uid, tab, googlePhotoUrl]);
-
   const retryRemoteData = useCallback(() => {
     setRemoteDataError(null);
     setRemoteSettings(undefined);
     setRemoteSplits(undefined);
     setRemoteHistoryStatus('LoadingFirstPage');
-    setRemoteActiveWorkout(undefined);
     setRetryCount((count) => count + 1);
   }, []);
 
@@ -276,6 +184,31 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
       setRemoteDataError('Could not load older workout history. Check your connection and try again.');
     }
   }, [uid, remoteHistoryStatus]);
+
+  const loadHistoryDate = useCallback(async (timestamp: number) => {
+    if (!uid || !db) return;
+    const start = new Date(timestamp);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    try {
+      const result = await getDocs(query(
+        collection(db, 'users', uid, 'history'),
+        where('startedAt', '>=', start.getTime()),
+        where('startedAt', '<', end.getTime()),
+        orderBy('startedAt', 'desc'),
+      ));
+      const page = result.docs.map((item) => item.data().data as WorkoutRecord);
+      setRemoteHistoryResults((current) => {
+        const byId = new Map(current.map((item) => [item.id, item]));
+        page.forEach((item) => byId.set(item.id, item));
+        return [...byId.values()].sort((a, b) => b.startedAt - a.startedAt);
+      });
+    } catch (error) {
+      console.warn('[Repday] Workout history date query failed', error);
+      setRemoteDataError('Could not load workout history for that date. Check your connection and try again.');
+    }
+  }, [uid]);
 
   const syncSplits = useCallback(async ({ items }: { items: any[] }) => {
     const firestore = db;
@@ -365,90 +298,9 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     }
   }, [uid]);
 
-  const saveActiveWorkout = useCallback(async ({ activeWorkout, working, restEndsAt }: {
-    activeWorkout: any; working: any; restEndsAt: number | null;
-  }) => {
-    if (!uid || !db) return;
-    const parentRef = doc(db, 'users', uid, 'activeWorkouts', 'current');
-    const setsRef = collection(parentRef, 'sets');
-    if (!activeWorkout || !working) {
-      const existingSets = await getDocs(setsRef);
-      const settingsRef = doc(db, 'users', uid, 'settings', 'main');
-      const batch = writeBatch(db);
-      existingSets.docs.forEach((set) => batch.delete(set.ref));
-      batch.delete(parentRef);
-      batch.set(settingsRef, {
-        legacyActiveWorkout: deleteField(),
-        legacyWorking: deleteField(),
-        legacyRestEndsAt: deleteField(),
-      }, { merge: true });
-      await batch.commit();
-      activeParentPayload.current = null;
-      return;
-    }
-
-    const sessionKey = String(activeWorkout.startedAt ?? Date.now());
-    const parentData = { sessionKey, activeWorkout, working: stripWorkingSets(working), restEndsAt, updatedAt: Date.now() };
-    const comparable = JSON.stringify({ sessionKey, activeWorkout, working: parentData.working, restEndsAt });
-    if (activeParentPayload.current === comparable) return;
-
-    const current = await getDoc(parentRef);
-    const batch = writeBatch(db);
-    batch.set(parentRef, parentData, { merge: true });
-    if (!current.exists()) {
-      working.moves.forEach((move: any, moveIndex: number) => { if (move.activeSessionOnly) return; move.sets.forEach((set: any, setIndex: number) => {
-        batch.set(doc(setsRef, setDocumentId(moveIndex, setIndex)), {
-          moveIndex, setIndex, weight: String(set.weight ?? '0'), reps: String(set.reps ?? '10'), done: Boolean(set.done), addedDuringWorkout: Boolean(set.addedDuringWorkout),
-        });
-      }); });
-    } else {
-      const existingSets = await getDocs(setsRef);
-      const existingIds = new Set(existingSets.docs.map((set) => set.id));
-      working.moves.forEach((move: any, moveIndex: number) => { if (move.activeSessionOnly) return; move.sets.forEach((set: any, setIndex: number) => {
-        const id = setDocumentId(moveIndex, setIndex);
-        if (!existingIds.has(id)) batch.set(doc(setsRef, id), {
-          moveIndex, setIndex, weight: String(set.weight ?? '0'), reps: String(set.reps ?? '10'), done: Boolean(set.done), addedDuringWorkout: Boolean(set.addedDuringWorkout),
-        });
-      }); });
-    }
-    await batch.commit();
-    activeParentPayload.current = comparable;
-  }, [uid]);
-
-  const updateActiveWorkoutSet = useCallback(({ sessionKey, moveIndex, setIndex, field, value }: {
-    sessionKey: string; moveIndex: number; setIndex: number; field: 'weight' | 'reps' | 'done'; value: string | boolean;
-  }) => {
-    if (!uid || !db) return Promise.reject(new Error('Sign in to update workout sets.'));
-    if (remoteActiveWorkout?.sessionKey && sessionKey !== remoteActiveWorkout.sessionKey) return Promise.reject(new Error('This workout is no longer active.'));
-    return setDoc(doc(db, 'users', uid, 'activeWorkouts', 'current', 'sets', setDocumentId(moveIndex, setIndex)), {
-      moveIndex, setIndex, [field]: field === 'done' ? Boolean(value) : String(value),
-    }, { merge: true });
-  }, [uid, remoteActiveWorkout?.sessionKey]);
-
-  const addActiveWorkoutSet = useCallback(({ sessionKey: _sessionKey, moveIndex, setIndex, weight, reps }: {
-    sessionKey: string; moveIndex: number; setIndex: number; weight: string; reps: string;
-  }) => {
-    if (!uid || !db) return Promise.reject(new Error('Sign in to add workout sets.'));
-    return setDoc(doc(db, 'users', uid, 'activeWorkouts', 'current', 'sets', setDocumentId(moveIndex, setIndex)), { moveIndex, setIndex, weight, reps, done: false, addedDuringWorkout: true });
-  }, [uid]);
-
-  const deleteActiveWorkoutSet = useCallback(({ sessionKey: _sessionKey, moveIndex, setIndex }: {
-    sessionKey: string; moveIndex: number; setIndex: number;
-  }) => {
-    if (!uid || !db) return Promise.reject(new Error('Sign in to remove workout sets.'));
-    if (remoteActiveWorkout?.sessionKey && _sessionKey !== remoteActiveWorkout.sessionKey) return Promise.reject(new Error('This workout is no longer active.'));
-    return deleteDoc(doc(db, 'users', uid, 'activeWorkouts', 'current', 'sets', setDocumentId(moveIndex, setIndex)));
-  }, [uid, remoteActiveWorkout?.sessionKey]);
-
-  const migrateLegacyActiveWorkout = useCallback(async () => undefined, []);
-
-  const uploadProfilePhoto = useCallback(async (blob: Blob, contentType: string) => {
-    if (!uid || !db || !storage) throw new Error('Sign in to upload a profile photo.');
-    const photoPath = `users/${uid}/profile/profile-image`;
-    const fileRef = ref(storage, photoPath);
-    await uploadBytes(fileRef, blob, { contentType });
-    const downloadURL = await getDownloadURL(fileRef);
-    await setDoc(doc(db, 'users', uid, 'profilePhotos', 'current'), { path: photoPath, downloadURL, updatedAt: Date.now() });
+  const saveScheduleOverrides = useCallback(({ scheduleOverrides }: { scheduleOverrides: Record<string, string | null> }) => {
+    if (!uid || !db) return Promise.reject(new Error('Sign in to swap workout days.'));
+    return setDoc(doc(db, 'users', uid, 'settings', 'main'), { scheduleOverrides, updatedAt: Date.now() }, { merge: true });
   }, [uid]);
 
   return {
@@ -459,8 +311,7 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     remoteHistoryResults,
     remoteHistoryStatus,
     loadMoreHistory,
-    remoteActiveWorkout,
-    profilePhotoUrl,
+    loadHistoryDate,
     syncSplits,
     syncHistory,
     upsertHistoryItem,
@@ -471,11 +322,6 @@ export function useWorkoutData({ isAuthenticated, tab, googlePhotoUrl }: UseWork
     deleteSplit,
     reorderSplitPositions,
     saveSettings,
-    saveActiveWorkout,
-    updateActiveWorkoutSet,
-    addActiveWorkoutSet,
-    deleteActiveWorkoutSet,
-    migrateLegacyActiveWorkout,
-    uploadProfilePhoto,
+    saveScheduleOverrides,
   };
 }

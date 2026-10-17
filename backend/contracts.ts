@@ -16,7 +16,7 @@ export type Move = {
   equipment?: string;
   instructions?: Record<string, string>;
   instruction_steps?: Record<string, string[]>;
-  /** Kept on-device during an active workout; excluded from its cloud autosave. */
+  /** Kept on-device during an active workout and excluded from the saved split. */
   activeSessionOnly?: boolean;
   /** Append this session-only exercise to the saved split when the workout finishes. */
   addToSplitOnFinish?: boolean;
@@ -59,6 +59,7 @@ export type WorkoutSettings = {
   guidedPlan?: {id:string;templateId:string;templateVersion:number;preferences:PlanPreferences;createdAt:number};
   weeklyPlan?: Record<number, string | null>;
   restDays?: Record<string, boolean | 'auto'>;
+  scheduleOverrides?: Record<string, string | null>;
   autoRestNextDate?: string | null;
   autoRestStartedAt?: number;
   focusDraft?: FocusDraft | null;
@@ -71,17 +72,6 @@ export type WorkoutSettings = {
   restPreferenceSeconds?: 60 | 90 | 120 | 180;
   weightUnit?: WeightUnit;
   remindersEnabled?: boolean;
-  legacyActiveWorkout?: ActiveWorkout | null;
-  legacyWorking?: Session | null;
-  legacyRestEndsAt?: number | null;
-};
-
-export type ActiveWorkoutSnapshot = {
-  userId?: string;
-  sessionKey?: string | null;
-  activeWorkout: ActiveWorkout | null;
-  working: Session | null;
-  restEndsAt: number | null;
 };
 
 /** App-facing read/write contract. Adapters translate these operations to their SDK. */
@@ -93,8 +83,7 @@ export interface WorkoutBackendBindings {
   remoteHistoryResults: WorkoutRecord[];
   remoteHistoryStatus: string;
   loadMoreHistory: (count: number) => void;
-  remoteActiveWorkout: ActiveWorkoutSnapshot | null | undefined;
-  profilePhotoUrl: string | null | undefined;
+  loadHistoryDate: (timestamp: number) => Promise<void>;
   syncSplits: (args: { items: Session[] }) => Promise<unknown>;
   syncHistory: (args: { items: WorkoutRecord[] }) => Promise<unknown>;
   upsertHistoryItem: (args: { item: WorkoutRecord }) => Promise<unknown>;
@@ -117,26 +106,5 @@ export interface WorkoutBackendBindings {
     weightUnit: WeightUnit;
     remindersEnabled: boolean;
   }) => Promise<unknown>;
-  saveActiveWorkout: (args: {
-    activeWorkout: ActiveWorkout | null;
-    working: Session | null;
-    restEndsAt: number | null;
-  }) => Promise<unknown>;
-  updateActiveWorkoutSet: (args: {
-    sessionKey: string;
-    moveIndex: number;
-    setIndex: number;
-    field: 'weight' | 'reps' | 'done';
-    value: string | boolean;
-  }) => Promise<unknown>;
-  addActiveWorkoutSet: (args: {
-    sessionKey: string;
-    moveIndex: number;
-    setIndex: number;
-    weight: string;
-    reps: string;
-  }) => Promise<unknown>;
-  deleteActiveWorkoutSet: (args: { sessionKey: string; moveIndex: number; setIndex: number }) => Promise<unknown>;
-  migrateLegacyActiveWorkout: (args: Record<string, never>) => Promise<unknown>;
-  uploadProfilePhoto: (blob: Blob, contentType: string) => Promise<void>;
+  saveScheduleOverrides: (args: { scheduleOverrides: Record<string, string | null> }) => Promise<unknown>;
 }

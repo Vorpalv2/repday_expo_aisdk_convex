@@ -4,7 +4,12 @@ import {
   initializeAuth,
 } from 'firebase/auth';
 import * as FirebaseAuth from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
@@ -31,8 +36,24 @@ function createAuth() {
   }
 }
 
+function createFirestore() {
+  if (!app) return null;
+  if (Platform.OS !== 'web') return getFirestore(app);
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } catch {
+    // Fast refresh can retain an already initialized instance. In that case,
+    // reuse it instead of creating a second Firestore client.
+    return getFirestore(app);
+  }
+}
+
 export const auth = createAuth();
-export const db = app ? getFirestore(app) : null;
+export const db = createFirestore();
 export const storage = app ? getStorage(app) : null;
 export { app };
 export { isFirebaseConfigured };

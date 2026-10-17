@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isRestDay, restDayKey } from '../lib/restDays';
+import { isRestDay, restDayKey, scheduledSessionIdForDayKey, swapAdjacentScheduleOverrides } from '../lib/restDays';
 
 test('rest override applies to one date and preserves the recurring split', () => {
   const plan = {4: 'pull-b', 6: null};
@@ -18,6 +18,34 @@ test('date boundaries use the account time zone', () => {
   assert.equal(restDayKey(instant, 'Asia/Kolkata'), '2026-10-16');
   assert.equal(restDayKey(instant, 'America/New_York'), '2026-10-15');
   assert.equal(isRestDay(instant, 'Asia/Kolkata', {4: null}, {}), true);
+});
+
+test('date-specific schedule overrides swap adjacent days without changing the weekly plan', () => {
+  const plan = {4: 'legs', 5: null};
+  const overrides = {'2026-10-16': null, '2026-10-17': 'legs'};
+  assert.equal(scheduledSessionIdForDayKey('2026-10-16', plan, overrides), null);
+  assert.equal(scheduledSessionIdForDayKey('2026-10-17', plan, overrides), 'legs');
+  assert.equal(isRestDay(new Date('2026-10-16T08:00:00Z'), 'Asia/Kolkata', plan, {}, overrides), true);
+  assert.equal(isRestDay(new Date('2026-10-17T08:00:00Z'), 'Asia/Kolkata', plan, {'2026-10-17': true}, overrides), false);
+  assert.equal(scheduledSessionIdForDayKey('2026-10-23', plan, overrides), 'legs');
+  assert.deepEqual(plan, {4: 'legs', 5: null});
+});
+
+test('swapping a workout and rest day back restores the recurring plan', () => {
+  const plan = {4: 'legs', 5: null};
+  const first = swapAdjacentScheduleOverrides('2026-10-16', plan, {}, {});
+  assert.deepEqual(first, {'2026-10-16': null, '2026-10-17': 'legs'});
+  const restored = swapAdjacentScheduleOverrides('2026-10-16', plan, {}, first);
+  assert.deepEqual(restored, {});
+  assert.deepEqual(plan, {4: 'legs', 5: null});
+});
+
+test('swapping respects a manual rest day without changing the recurring plan', () => {
+  const plan = {4: 'legs', 5: 'upper'};
+  const overrides = swapAdjacentScheduleOverrides('2026-10-16', plan, {'2026-10-16': true}, {});
+  assert.deepEqual(overrides, {'2026-10-16': 'upper', '2026-10-17': null});
+  assert.equal(isRestDay(new Date('2026-10-16T08:00:00Z'), 'Asia/Kolkata', plan, {'2026-10-16': true}, overrides), false);
+  assert.equal(isRestDay(new Date('2026-10-17T08:00:00Z'), 'Asia/Kolkata', plan, {}, overrides), true);
 });
 
 test('automatic rest fills missed dates, skipping workouts and manual choices', async () => {
