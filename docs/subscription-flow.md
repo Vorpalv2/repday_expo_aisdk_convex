@@ -1,6 +1,15 @@
 # Implementing subscriptions with Razorpay and Firebase: a beginner's guide
 
-Updated: 16 October 2026 (Asia/Kolkata).
+Updated: 17 October 2026 (Asia/Kolkata).
+
+**Current production correction:** billing now uses version-conditional Firestore
+commits instead of the billing transaction sequences described in the original
+walkthrough below. Status reads do not reconcile provider invoices; signed
+payment verification and webhooks do. See the
+[hosting request-budget incident and current flow](billing-worker-subrequest-incident.md)
+for the measured 10-fetch limit, current implementation and verification.
+These changes have been deployed to the hosted web app. The publication and
+deployment notes below describe earlier stages of the project.
 
 This guide is for a developer who can build a basic website and sign users in,
 but has never implemented subscription payments. It explains what to build,
@@ -8,8 +17,8 @@ why each part exists, where it belongs, and how to check that it works.
 
 We use Repday as the example: workout tracking and six saved splits are free;
 AI Coach, Form Inspection, and additional splits require Repday Plus.
-Development uses a **₹1/month Razorpay Test Mode plan**. Payments are simulated.
-The intended launch price is ₹200/month, but live billing is not enabled.
+Development uses a **₹75/month Razorpay Test Mode plan**. Payments are simulated.
+The intended launch price is ₹75/month, but live billing is not enabled.
 
 ## Read this before following the commands
 
@@ -115,8 +124,8 @@ Repday's current rules are:
 
 | Decision | Current choice |
 | --- | --- |
-| Sandbox price | ₹1/month, represented as 100 paise |
-| Intended live price | ₹200/month, represented as 20000 paise |
+| Sandbox price | ₹75/month, represented as 7500 paise |
+| Intended live price | ₹75/month, represented as 7500 paise |
 | Free features | Workout tracking, history, up to six saved splits |
 | Plus features | AI Coach, Form Inspection, more than six splits |
 | Free trial | None implemented |
@@ -275,7 +284,7 @@ npm run billing:setup
 ```
 
 This helper uses the Test Mode keys to validate the configured plan or create a
-monthly ₹1 plan. It saves `RAZORPAY_PLAN_ID`, sets `RAZORPAY_MODE=test`, and creates
+monthly ₹75 plan. It saves `RAZORPAY_PLAN_ID`, sets `RAZORPAY_MODE=test`, and creates
 a separate random `RAZORPAY_WEBHOOK_SECRET` if one is missing.
 
 The request the setup script makes has this shape; this is a **request example**,
@@ -298,9 +307,9 @@ create subscriptions. The browser must not choose the price or the plan ID.
 
 See the [official plan API](https://razorpay.com/docs/api/payments/subscriptions/create-plan/)
 for a new implementation. Repday's amount validation is deliberately fixed to
-100 paise while sandbox development is in progress.
+7500 paise while sandbox development is in progress.
 
-**Checkpoint:** the helper prints a sandbox plan ID and confirms ₹1/month.
+**Checkpoint:** the helper prints a sandbox plan ID and confirms ₹75/month.
 A 401 response usually means the key pair is invalid or mismatched.
 
 ## 7. Design the billing records
@@ -468,7 +477,7 @@ const checkout = new (window as any).Razorpay({
   subscription_id: details.subscriptionId,
   name: 'Repday Plus',
   image: 'https://repday.expo.app/icons/repday-login-192.png',
-  description: '₹1/month · Test Mode · No real money',
+  description: '₹75/month · Test Mode · No real money',
   prefill: { email: details.email },
   handler: async (paymentResponse: Record<string, string>) => {
     const status = await billingRequest('/api/billing/verify', paymentResponse);
@@ -502,7 +511,7 @@ Closing checkout is a normal action, not a successful payment. The user stays
 free and can retry. A failed payment should show an error without erasing their
 workout data.
 
-**Checkpoint:** checkout opens with ₹1 in Test Mode. Opening or dismissing it does
+**Checkpoint:** checkout opens with ₹75 in Test Mode. Opening or dismissing it does
 not change paid access.
 
 ## 11. Verify the result and unlock access
@@ -553,7 +562,7 @@ For Repday's fixed sandbox plan, accept invoices only when they:
 
 - Belong to this subscription.
 - Have status `paid` and currency `INR`.
-- Show 100 paise paid, no amount due, and a valid `billing_end`.
+- Show 7500 paise paid, no amount due, and a valid `billing_end`.
 
 Take the latest qualifying `billing_end`, convert seconds to milliseconds, and
 save that as `paidUntil` in a server transaction.
@@ -853,7 +862,7 @@ npm run web -- --port 8081
 ```
 
 Open `http://localhost:8081`, sign in with a disposable QA account, then use
-**Profile → Repday Plus → Try Plus · ₹1/month**, or tap a locked gold feature.
+**Profile → Repday Plus → Try Plus · ₹75/month**, or tap a locked gold feature.
 Use the current public test cards from
 [Razorpay's subscription testing guide](https://razorpay.com/docs/payments/subscriptions/test/).
 Do not use a personal card to test this sandbox flow.
@@ -992,7 +1001,7 @@ Before changing to real payments:
 1. Complete Razorpay's applicable account/website activation requirements.
 2. Decide cancellation, refund, support, privacy, and billing-record retention
    policies and publish the required product/policy pages.
-3. Create a separate live ₹200/month plan: 20000 paise, INR, monthly interval 1.
+3. Create a separate live ₹75/month plan: 7500 paise, INR, monthly interval 1.
 4. Centralize and update the price/mode checks together. Review at least
    `lib/billingTypes.ts`, `lib/server/billing.ts`, `scripts/setup-razorpay-sandbox.mjs`,
    `backend/billing.ts`, and `components/SubscriptionPanel.tsx`.

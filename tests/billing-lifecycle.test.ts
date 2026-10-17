@@ -14,6 +14,16 @@ function fixture(){
  class Clock extends Date { static now(){return clockTime;} }
  class ServerError extends Error{constructor(public status:number,message:string){super(message);}}
  const storage={ServerError,adminCredential:()=>({}),readDocument:async(path:string)=>{documentReads+=1;return records.has(path)?structuredClone(records.get(path)):null;},documentWrite:(path:string,value:any,merge=false)=>({path,value,merge}),inTransaction:async(work:any)=>{const {result,writes}=await work('test-txn');committedWrites+=writes.length;for(const write of writes)records.set(write.path,write.merge?{...records.get(write.path),...write.value}:write.value);return result;}};
+ const versions=new Map<string,string>();let revision=0;
+ Object.assign(storage,{
+  readVersionedDocument:async(path:string)=>({data:await storage.readDocument(path),version:records.has(path)?versions.get(path)||'initial':null}),
+  conditionalDocumentWrite:(path:string,value:any,version:string|null,merge=false)=>({path,value,merge,version}),
+  commitWrites:async(writes:any[])=>{
+   for(const write of writes){if('version' in write&&write.version!==(records.has(write.path)?versions.get(write.path)||'initial':null))throw new ServerError(409,'Billing changed');}
+   committedWrites+=writes.length;
+   return {writeResults:writes.map(write=>{records.set(write.path,write.merge?{...records.get(write.path),...write.value}:write.value);const updateTime=`version-${++revision}`;versions.set(write.path,updateTime);return {updateTime};})};
+  }
+ });
  const cache={readBillingAccount:async(uid:string)=>storage.readDocument(`billingAccounts/${uid}`),invalidateBillingAccount:async()=>{}};
  const exports:any={};
  vm.runInNewContext(compiled,{exports,require:(name:string)=>name==='./firebaseAdmin'?storage:name==='./billingCache'?cache:{FREE_SPLIT_LIMIT:6,SANDBOX_AMOUNT_PAISE:100},process:{env:{BILLING_ENABLED:'true',RAZORPAY_MODE:'test',RAZORPAY_KEY_ID:'rzp_test_fixture',RAZORPAY_KEY_SECRET:'test-only',RAZORPAY_PLAN_ID:'plan_test',RAZORPAY_WEBHOOK_SECRET:'test-only'}},Date:Clock,AbortSignal,btoa,crypto:webcrypto,fetch:async(url:string,options:any)=>{
@@ -21,16 +31,23 @@ function fixture(){
  const data=url.includes('/invoices?')?{items:invoicePaid?[{subscription_id:'sub_test',status:'paid',currency:'INR',amount_paid:100,amount_due:0,billing_end:end}]:[]}:{id:'sub_test',plan_id:'plan_test',status,has_scheduled_changes:false,paid_count:invoicePaid?1:0,notes:{firebase_uid:'owner'}};
  return {ok:true,json:async()=>data};
  }});
- return {exports,records,cancels,end,writes:()=>committedWrites,reads:()=>documentReads,now:()=>clockTime,advance:(milliseconds:number)=>{clockTime+=milliseconds;},setPaid:(paid:boolean)=>{invoicePaid=paid;}};
+ return {exports,records,cancels,end,writes:()=>committedWrites,reads:()=>documentReads,now:()=>clockTime,advance:(milliseconds:number)=>{clockTime+=milliseconds;},setPaid:(paid:boolean)=>{invoicePaid=paid;},setStatus:(value:string)=>{status=value;}};
 }
 test('cycle-end cancellation retains paid access and is idempotent when provider changes flag is false',async()=>{
- const f=fixture();await f.exports.cancelSubscription('owner');
+ const f=fixture();f.records.set('billingAccounts/owner',{subscriptionId:'sub_test',status:'active',paidUntil:f.end*1000});await f.exports.cancelSubscription('owner');
  let status=await f.exports.billingStatus('owner');assert.equal(status.cancellationScheduled,true);assert.equal(status.premium,true);assert.equal(status.paidUntil,f.end*1000);
  await f.exports.cancelSubscription('owner');assert.deepEqual(f.cancels,[true]);
- await f.exports.cancelSubscription('owner',true);assert.deepEqual(f.cancels,[true,false]);status=await f.exports.billingStatus('owner');assert.equal(status.status,'cancelled');assert.equal(status.cancellationScheduled,false);
+ // Deletion cancels the provider then marks the account for removal. It does
+ // not spend another provider/invoice reconciliation just before deletion.
+ await f.exports.cancelSubscription('owner',true);assert.deepEqual(f.cancels,[true,false]);assert.ok(f.records.get('billingAccounts/owner').deletingUntil>f.now());
+});
+test('resuming current-plan unpaid checkout performs no transaction writes',async()=>{
+ const f=fixture();f.setStatus('created');f.setPaid(false);
+ f.records.set('billingAccounts/owner',{subscriptionId:'sub_test',status:'created',paidUntil:null});
+ assert.equal(await f.exports.subscribe('owner'),'sub_test');assert.equal(f.reads(),1);assert.equal(f.writes(),0);assert.deepEqual(f.cancels,[]);
 });
 test('expired access fails closed even if provider status remains active',async()=>{
- const f=fixture();f.records.set('billingAccounts/owner',{subscriptionId:'sub_test',status:'active',paidUntil:Date.now()-1});
+ const f=fixture();f.records.set('billingAccounts/owner',{subscriptionId:'sub_test',status:'active',paidUntil:f.now()-1});
  assert.equal((await f.exports.billingStatus('owner')).premium,false);await assert.rejects(()=>f.exports.requirePremium('owner'),/Plus is required/);
 });
 test('an access check reuses the billing status already loaded by its endpoint',async()=>{

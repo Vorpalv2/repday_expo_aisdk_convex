@@ -1,3 +1,3 @@
 import { billingUser,billingError,billingResponse } from '../../../lib/server/billingAuth';
-import { cancelSubscription,requirePremium,billingStatus } from '../../../lib/server/billing';
-export async function POST(request:Request){try{const {uid}=await billingUser(request);await cancelSubscription(uid); return billingResponse(await billingStatus(uid));}catch(error){return billingError(error);}}
+import { cancelSubscription,billingStatusFromAccount } from '../../../lib/server/billing';
+export async function POST(request:Request){try{const {uid}=await billingUser(request);const account=await cancelSubscription(uid);return billingResponse(billingStatusFromAccount(account??null));}catch(error){return billingError(error);}}

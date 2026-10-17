@@ -37,6 +37,7 @@ export function SubscriptionPanel({status,palette:_palette,onChange,onRefresh,er
  const [expanded,setExpanded]=useState(!!onClose);
  const manual=status?.accessSource==='manual';
  const premium=!!status?.premium;
+ const monthlyPrice=status?status.amountPaise/100:75;
  const run=async(action:()=>Promise<void>)=>{if(busy)return;setBusy(true);setMessage('');try{await action();}catch(error){setMessage(error instanceof Error?error.message:'Please retry.');}finally{setBusy(false);}};
  const button={backgroundColor:PLUS_GOLD.background,borderRadius:18,minHeight:50,alignItems:'center' as const,justifyContent:'center' as const,paddingHorizontal:18,borderWidth:1,borderColor:PLUS_GOLD.border};
  const statusText=manual?'Complimentary access':premium?'Membership active':'Unlock Repday Plus';
@@ -62,7 +63,7 @@ export function SubscriptionPanel({status,palette:_palette,onChange,onRefresh,er
   </View>
 
   {expanded?<>
-  {!manual?<View style={{flexDirection:'row',alignItems:'flex-end',gap:6}}><Text style={{fontSize:34,lineHeight:39,fontWeight:'900',color:MEMBERSHIP_COLORS.ink}}>₹1</Text><Text style={{fontSize:14,lineHeight:24,color:MEMBERSHIP_COLORS.muted}}>/ month · sandbox</Text></View>:null}
+  {!manual?<View style={{flexDirection:'row',alignItems:'flex-end',gap:6}}><Text style={{fontSize:34,lineHeight:39,fontWeight:'900',color:MEMBERSHIP_COLORS.ink}}>₹{monthlyPrice}</Text><Text style={{fontSize:14,lineHeight:24,color:MEMBERSHIP_COLORS.muted}}>/ month · sandbox</Text></View>:null}
 
   <View style={{gap:8}}>
    <Benefit label="AI Coach"/>
@@ -79,7 +80,7 @@ export function SubscriptionPanel({status,palette:_palette,onChange,onRefresh,er
   {status?.testAccessDurationSeconds===60&&!manual?<View style={{padding:12,borderRadius:14,backgroundColor:'rgba(246,227,167,.11)',borderWidth:1,borderColor:MEMBERSHIP_COLORS.line}}><Text style={{color:MEMBERSHIP_COLORS.goldSoft,fontSize:12,lineHeight:18,fontWeight:'700'}}>{status.paidUntil?premium?`1-minute sandbox test · Access ends at ${new Date(status.paidUntil).toLocaleTimeString()}`:'1-minute sandbox test · Paid access has expired.':'1-minute sandbox test · Access expires 60 seconds after payment is verified.'}</Text></View>:null}
 
   {busy?<ActivityIndicator color={PLUS_GOLD.background}/>:null}
-  {status?.configured&&!premium&&['free','created','cancelled','completed','expired'].includes(status.status)?<Pressable accessibilityRole="button" disabled={busy} style={[button,{opacity:busy?.65:1}]} onPress={()=>void run(async()=>{const value=await startSandboxCheckout();if(value){onChange(value);setMessage(value.premium?'Repday Plus is active.':'Authorization received. Refresh status once the test invoice is paid.');}else setMessage('Checkout closed. You can try again.');})}><Text style={{fontSize:16,fontWeight:'900',color:PLUS_GOLD.ink}}>{status.status==='created'?'Continue test checkout':'Try Plus · ₹1/month'}</Text></Pressable>:null}
+  {status?.configured&&!premium&&['free','created','cancelled','completed','expired'].includes(status.status)?<Pressable accessibilityRole="button" disabled={busy} style={[button,{opacity:busy?.65:1}]} onPress={()=>void run(async()=>{const value=await startSandboxCheckout();if(value){onChange(value);setMessage(value.premium?'Repday Plus is active.':'Authorization received. Refresh status once the test invoice is paid.');}else setMessage('Checkout closed. You can try again.');})}><Text style={{fontSize:16,fontWeight:'900',color:PLUS_GOLD.ink}}>{status.status==='created'?'Continue test checkout':`Try Plus · ₹${monthlyPrice}/month`}</Text></Pressable>:null}
   {status?.subscriptionId&&!['cancelled','completed','expired'].includes(status.status)&&!status.cancellationScheduled?<Pressable accessibilityRole="button" disabled={busy} onPress={()=>setConfirm(true)} style={{minHeight:40,alignItems:'center',justifyContent:'center'}}><Text style={{color:MEMBERSHIP_COLORS.muted,fontSize:13,fontWeight:'700'}}>Cancel subscription</Text></Pressable>:null}
   {confirm?<View style={{gap:10,padding:13,borderWidth:1,borderColor:MEMBERSHIP_COLORS.line,borderRadius:17,backgroundColor:MEMBERSHIP_COLORS.surface}}><Text style={{color:MEMBERSHIP_COLORS.ink,lineHeight:20}}>Cancel monthly renewal? Paid access remains until the end of the paid period.</Text><Pressable accessibilityRole="button" disabled={busy} style={button} onPress={()=>void run(async()=>{onChange(await billingRequest('/api/billing/cancel',{}));setConfirm(false);setMessage('Subscription cancellation saved.');})}><Text style={{color:PLUS_GOLD.ink,fontWeight:'900'}}>Confirm cancellation</Text></Pressable><Pressable onPress={()=>setConfirm(false)}><Text style={{color:MEMBERSHIP_COLORS.goldSoft,textAlign:'center',fontWeight:'700'}}>Keep subscription</Text></Pressable></View>:null}
 

@@ -2,6 +2,7 @@ import {
   deleteUser,
   EmailAuthProvider,
   reauthenticateWithCredential,
+  signInWithEmailAndPassword,
   type User,
 } from 'firebase/auth';
 import {
@@ -18,6 +19,33 @@ import { billingRequest } from '../billing';
 import { reauthenticateGoogleUser } from './googleSignIn';
 
 const USER_COLLECTIONS = ['settings', 'splits', 'history', 'activeWorkouts', 'profilePhotos'] as const;
+
+async function reauthenticatePassword(user: User, password: string) {
+  if (!user.email) throw new Error('Enter your password to confirm account deletion.');
+  const credential = EmailAuthProvider.credential(user.email, password);
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await reauthenticateWithCredential(user, credential);
+      return;
+    } catch (error) {
+      lastError = error;
+      const code = (error as { code?: string }).code;
+      if (code !== 'auth/network-request-failed') throw error;
+      if (attempt === 2) break;
+      await new Promise<void>((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
+  }
+  // Safari can leave an existing Firebase session in a state where the
+  // reauthenticate endpoint reports a network failure even though a fresh
+  // password sign-in succeeds. Refresh the session as a fallback so account
+  // deletion is not blocked before billing cancellation starts.
+  if ((lastError as { code?: string } | undefined)?.code === 'auth/network-request-failed' && auth) {
+    await signInWithEmailAndPassword(auth, user.email, password);
+    return;
+  }
+  throw lastError;
+}
 
 async function clearCollection(path: string) {
   const database = db;
@@ -75,7 +103,7 @@ export async function deleteFirebaseAccount(user: User, password?: string, onPro
   try {
     if (providers.includes('password')) {
       if (!password || !user.email) throw new Error('Enter your password to confirm account deletion.');
-      await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+      await reauthenticatePassword(user, password);
     } else if (providers.includes('google.com')) {
       await reauthenticateGoogleUser(user);
     } else {
@@ -85,6 +113,9 @@ export async function deleteFirebaseAccount(user: User, password?: string, onPro
     const code = (error as { code?: string }).code;
     if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
       throw new Error('That password didn’t match. Your account data is unchanged.');
+    }
+    if (code === 'auth/network-request-failed') {
+      throw new Error('Firebase could not reach its authentication service. Check your connection and try again. Your account and subscription are unchanged.');
     }
     if (code === 'auth/popup-closed-by-user') throw new Error('Google verification was cancelled. Your account data is unchanged.');
     throw error;

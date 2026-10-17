@@ -8,7 +8,7 @@ let client: Redis | null = null;
 
 function redis() {
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) return null;
-  return client ??= new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN });
+  return client ??= new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN, retry:{retries:0},signal:()=>AbortSignal.timeout(2000),enableAutoPipelining:false,enableTelemetry:false });
 }
 
 export function billingCacheSeconds(account: Record<string, any> | null, now = Date.now()) {

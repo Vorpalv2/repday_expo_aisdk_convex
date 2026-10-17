@@ -29,8 +29,8 @@ environment configuration.
 ## Current payment status
 
 The merchant account has completed KYC. Development uses **Test Mode only**,
-with a **₹1/month sandbox plan** (100 paise). Payments are simulated; the intended
-launch price remains ₹200/month. Live billing is not enabled.
+with a **₹75/month sandbox plan** (7500 paise). Payments are simulated; the intended
+launch price remains ₹75/month. Live billing is not enabled.
 
 The selected subscription benefits are AI Coach, Form Inspection, and more than
 six workout splits. Workout tracking and up to six splits remain free.
@@ -59,7 +59,7 @@ The first command validates the project, copies the credential to the ignored
 `.firebase-admin.local.json`, and sets `FIREBASE_ADMIN_SERVICE_ACCOUNT` in the
 ignored `.env.local`. Both files use owner-only permissions. Download filenames
 matching `*-firebase-adminsdk-*.json` are also excluded from Git. No secret is
-printed. The second command validates or creates the ₹1 monthly Test Mode plan
+printed. The second command validates or creates the ₹75 monthly Test Mode plan
 and saves a separate webhook signing secret locally.
 
 These local settings do not configure the deployed website. Server credentials
@@ -103,7 +103,7 @@ https://razorpay.com/docs/payments/dashboard/account-settings/api-keys/
 - Deploy the staged security rules and register the Test Mode webhook.
 - Test dashboard-triggered subsequent charges and failed renewal retries.
 - Prepare pricing and business/policy pages before requesting a live launch.
-- Create a separate ₹200 monthly live plan and explicitly revise the current
+- Create a separate ₹75 monthly live plan and explicitly revise the current
   Test Mode-only safeguards when live billing is approved for release.
 
 Subscription documentation: https://razorpay.com/docs/payments/subscriptions/
@@ -112,7 +112,7 @@ Subscription documentation: https://razorpay.com/docs/payments/subscriptions/
 
 Run `npm run web -- --port 8081` with `BILLING_ENABLED=true` in the ignored
 local environment. Sign in, open **Profile → Repday Plus**, and choose
-**Try Plus · ₹1/month**. Free feature buttons show a PLUS badge; a verified paid
+**Try Plus · ₹75/month**. Free feature buttons show a PLUS badge; a verified paid
 subscription removes it. Razorpay Test Mode is enforced in both server and client.
 Use only the public test card details from Razorpay's integration documentation.
 
@@ -173,7 +173,7 @@ error so Razorpay can retry; it does not silently acknowledge a lost payment.
 2. Export and deploy the new web client and API. Check the active deployment.
 3. Deploy `firestore.rules` and verify denied client creates and billing writes.
 4. Configure the Test Mode webhook and test renewals/cancellation/expiry.
-5. Keep Live Mode disabled. A live launch needs a separate ₹200 plan, policy
+5. Keep Live Mode disabled. A live launch needs a separate ₹75 plan, policy
    pages and an explicit change to the current test-only safeguard.
 
 ## Verification

@@ -15,10 +15,13 @@ function save(name, value) {
   text = pattern.test(text) ? text.replace(pattern, `${name}=${value}`) : `${text.trimEnd()}\n${name}=${value}\n`;
   fs.writeFileSync('.env.local', text, { mode: 0o600 });
 }
-let plan = process.env.RAZORPAY_PLAN_ID ? await request(`plans/${process.env.RAZORPAY_PLAN_ID}`) : await request('plans', { period: 'monthly', interval: 1, item: { name: 'Repday Plus — sandbox', amount: 100, currency: 'INR', description: 'Test only: AI Coach, Form Inspection, and more than six workout splits.' } });
-if (plan.period !== 'monthly' || plan.interval !== 1 || plan.item?.amount !== 100 || plan.item?.currency !== 'INR') throw new Error('The configured sandbox plan must be INR 1 per month.');
+const amountPaise = Number(process.env.RAZORPAY_PLAN_AMOUNT_PAISE || 7500);
+if (!Number.isSafeInteger(amountPaise) || amountPaise <= 0) throw new Error('RAZORPAY_PLAN_AMOUNT_PAISE must be a positive integer.');
+let plan = process.env.RAZORPAY_PLAN_ID ? await request(`plans/${process.env.RAZORPAY_PLAN_ID}`) : await request('plans', { period: 'monthly', interval: 1, item: { name: 'Repday Plus — sandbox', amount: amountPaise, currency: 'INR', description: 'Test only: AI Coach, Form Inspection, and more than six workout splits.' } });
+if (plan.period !== 'monthly' || plan.interval !== 1 || plan.item?.amount !== amountPaise || plan.item?.currency !== 'INR') throw new Error(`The configured sandbox plan must be INR ${amountPaise / 100} per month.`);
 save('RAZORPAY_PLAN_ID', plan.id);
 if (!process.env.RAZORPAY_WEBHOOK_SECRET) save('RAZORPAY_WEBHOOK_SECRET', crypto.randomBytes(32).toString('base64url'));
 save('RAZORPAY_MODE', 'test');
-console.log('Sandbox plan ready:', plan.id, '— INR 1/month, simulated payments only.');
+save('RAZORPAY_PLAN_AMOUNT_PAISE', String(amountPaise));
+console.log('Sandbox plan ready:', plan.id, `— INR ${amountPaise / 100}/month, simulated payments only.`);
 console.log('Webhook secret is saved in .env.local; its value is not displayed.');

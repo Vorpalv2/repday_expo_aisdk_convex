@@ -1,6 +1,6 @@
 // Server-only Firestore REST adapter. Never import this module from a component.
 type Credential = { project_id: string; client_email: string; private_key: string };
-type Document = { name: string; fields?: Record<string, any> };
+type Document = { name: string; fields?: Record<string, any>; updateTime?: string };
 export class ServerError extends Error {
   constructor(public status: number, message: string, public code = '') { super(message); }
 }
@@ -62,13 +62,26 @@ export function decodeDocument(document: Document | null): Record<string, any> |
   return Object.fromEntries(Object.entries(document.fields || {}).map(([key, item]) => [key, decode(item)]));
 }
 async function request(resource: string, body?: unknown, method = 'POST', optional = false): Promise<any> {
-  const token = await accessToken();
+  let token: string;
+  try { token = await accessToken(); }
+  catch (error) {
+    if (error instanceof ServerError) throw error;
+    throw new ServerError(503, 'Billing storage authentication failed. Please retry.', 'BILLING_STORAGE_AUTH_FAILED');
+  }
   // Resource IDs are escaped separately; method suffixes remain outside IDs.
-  const response = await fetch(`https://firestore.googleapis.com/v1/${resource}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
+  let response: Response;
+  try { response = await fetch(`https://firestore.googleapis.com/v1/${resource}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(15_000) }); }
+  catch (error) {
+    const operation = resource.endsWith(':beginTransaction') ? 'begin' : resource.endsWith(':commit') ? 'commit' : resource.endsWith(':rollback') ? 'rollback' : method === 'GET' ? 'read' : 'query';
+    const budgetExceeded=error instanceof Error&&error.message.includes('Too many subrequests');
+    console.error('[billing-storage]',operation,budgetExceeded?'outbound-budget':error instanceof Error?error.name:'unknown');
+    throw new ServerError(503,budgetExceeded?'The billing server request limit was reached. Please retry.':'Billing storage connection failed. Please retry.',budgetExceeded?'BILLING_HOST_REQUEST_LIMIT':'BILLING_STORAGE_CONNECTION_FAILED');
+  }
   if (optional && response.status === 404) return null;
   if (!response.ok) {
     const data = await response.json().catch(() => ({})) as { error?: { status?: string } };
-    throw new ServerError(response.status === 409 ? 409 : 503, 'Billing storage is temporarily unavailable.', data.error?.status);
+    const conflict=response.status===409||response.status===412||data.error?.status==='FAILED_PRECONDITION';
+    throw new ServerError(conflict?409:503,conflict?'Billing changed. Please retry your action.':'Billing storage is temporarily unavailable.',data.error?.status);
   }
   return response.json();
 }
@@ -77,11 +90,17 @@ export async function readDocument(path: string, transaction?: string) {
   const query = transaction ? `?transaction=${encodeURIComponent(transaction)}` : '';
   return decodeDocument(await request(`${root()}/${escapedPath(path)}${query}`, undefined, 'GET', true));
 }
+export async function readVersionedDocument(path:string){
+  const document=await request(`${root()}/${escapedPath(path)}`,undefined,'GET',true) as Document|null;
+  if(document&&!document.updateTime)throw new ServerError(503,'Billing storage returned an invalid document version.');
+  return {data:decodeDocument(document),version:document?.updateTime??null};
+}
 export async function listDocuments(parent: string, collectionId: string, transaction?: string) {
   const data = await request(`${root()}${parent ? '/'+escapedPath(parent) : ''}:runQuery`, { structuredQuery: { from: [{ collectionId }], limit: 1000 }, ...(transaction ? { transaction } : {}) });
   return (data as { document?: Document }[]).flatMap(row => row.document ? [{ id: row.document.name.split('/').at(-1)!, data: decodeDocument(row.document)! }] : []);
 }
 export const documentWrite = (path: string, value: Record<string, unknown>, merge = false) => ({ update: { name: documentName(path), fields: encodeFields(value) }, ...(merge ? { updateMask: { fieldPaths: Object.keys(value) } } : {}) });
+export const conditionalDocumentWrite=(path:string,value:Record<string,unknown>,version:string|null,merge=false)=>({...documentWrite(path,value,merge),currentDocument:version?{updateTime:version}:{exists:false}});
 export const documentDelete = (path: string) => ({ delete: documentName(path) });
 export async function commitWrites(writes: unknown[], transaction?: string) {
   return request(`${root()}:commit`, { writes, ...(transaction ? { transaction } : {}) });
