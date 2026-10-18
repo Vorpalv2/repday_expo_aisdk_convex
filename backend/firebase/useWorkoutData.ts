@@ -380,7 +380,7 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess }: UseWorkoutDat
 
   const saveSettings = useCallback(async (settings: {
     weeklyPlan: Record<number, string | null>; restDays: Record<string, boolean | 'auto'>; autoRestNextDate: string | null; focusDraft: any; selectedSessionId: string | null;
-    country: string; timeZone: string; theme: 'light' | 'dark' | 'cyberpunk'; liveSyncEnabled: boolean; activityDefaultCollapsed: boolean;
+    country: string; timeZone: string; theme: 'light' | 'dark' | 'cyberpunk' | 'platinum'; liveSyncEnabled: boolean; activityDefaultCollapsed: boolean;
     trainingGoal: 'strength' | 'muscle' | 'fitness' | 'endurance'; restPreferenceSeconds: 60 | 90 | 120 | 180;
     weightUnit: 'kg' | 'lb'; remindersEnabled: boolean;
   }) => {

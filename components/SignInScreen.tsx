@@ -12,7 +12,7 @@ import { installTrainingPlan } from '../backend/firebase/trainingPlans';
 import { auth } from '../backend/firebase/client';
 
 export type OnboardingPreferences = {
-  theme: 'light' | 'dark' | 'cyberpunk';
+  theme: 'light' | 'dark' | 'cyberpunk' | 'platinum';
   activityDefaultCollapsed: boolean;
   trainingGoal: 'strength' | 'muscle' | 'fitness' | 'endurance';
   restPreferenceSeconds: 60 | 90 | 120 | 180;
@@ -68,6 +68,7 @@ const PALETTES: Record<ThemeId, { bg: string; ink: string; muted: string; blue: 
   light: { bg: '#fff', ink: '#17191d', muted: '#818994', blue: '#3478f6', surface: '#fff', soft: '#f2f6fc', border: '#e5eaf1', buttonText: '#fff' },
   dark: { bg: '#000000', ink: '#f3f5f8', muted: '#9da8b5', blue: '#78aaff', surface: '#151c25', soft: '#202a36', border: '#303b49', buttonText: '#111820' },
   cyberpunk: { bg: '#f5dc42', ink: '#0754bd', muted: '#315f9e', blue: '#0754bd', surface: '#fff1a1', soft: '#f1d443', border: '#d2b927', buttonText: '#ffe957' },
+  platinum: { bg: '#eef0f6', ink: '#202940', muted: '#65708a', blue: '#4757a5', surface: '#fafbff', soft: '#e4e8f2', border: '#ced4e2', buttonText: '#fff' },
 };
 
 const SPRITE_CELL_WIDTH = 1448 / 3;

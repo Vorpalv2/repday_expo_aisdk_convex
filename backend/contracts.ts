@@ -1,7 +1,7 @@
 import type { PlanPreferences } from '../lib/trainingPlan';
 /** Domain shapes shared by the UI and every backend adapter. */
 export type AuthFlow = 'signIn' | 'signUp';
-export type WorkoutTheme = 'light' | 'dark' | 'cyberpunk';
+export type WorkoutTheme = 'light' | 'dark' | 'cyberpunk' | 'platinum';
 export type TrainingGoal = 'strength' | 'muscle' | 'fitness' | 'endurance';
 export type WeightUnit = 'kg' | 'lb';
 export type SetEntry = { weight: string; reps: string; done: boolean; addedDuringWorkout?: boolean };

@@ -43,7 +43,7 @@ export function SubscriptionPanel({status,palette:_palette,onChange,onRefresh,on
  const run=async(action:()=>Promise<void>,toastOnError=false)=>{if(busy)return;setBusy(true);setMessage('');try{await action();}catch(error){const detail=error instanceof Error?error.message:'Please retry.';setMessage(detail);if(toastOnError)onNotify(detail);}finally{setBusy(false);}};
  const button={backgroundColor:PLUS_GOLD.background,borderRadius:18,minHeight:50,alignItems:'center' as const,justifyContent:'center' as const,paddingHorizontal:18,borderWidth:1,borderColor:PLUS_GOLD.border};
  const statusText=manual?'Complimentary access':premium?'Membership active':'Unlock Repday Plus';
- const statusDetail=manual?'Full Plus access is granted to this account.':premium&&status?.paidUntil?`${status.cancellationScheduled||status.status==='cancelled'?'Access until':'Paid through'} ${new Date(status.paidUntil).toLocaleDateString()}`:'AI Coach, Form Inspection, Cards workout view, Cyberpunk theme, and unlimited workout splits.';
+ const statusDetail=manual?'Full Plus access is granted to this account.':premium&&status?.paidUntil?`${status.cancellationScheduled||status.status==='cancelled'?'Access until':'Paid through'} ${new Date(status.paidUntil).toLocaleDateString()}`:'AI Coach, Form Inspection, Cards workout view, Cyberpunk and Platinum themes, and unlimited workout splits.';
 
  return <View accessibilityLabel="Repday Plus membership" style={{position:'relative',overflow:'hidden',backgroundColor:MEMBERSHIP_COLORS.background,borderRadius:expanded?28:22,padding:expanded?20:16,borderWidth:1.5,borderColor:PLUS_GOLD.border,gap:15,marginVertical:onClose?0:16,shadowColor:PLUS_GOLD.border,shadowOpacity:.18,shadowRadius:18,shadowOffset:{width:0,height:7},elevation:5}}>
   <View pointerEvents="none" style={{position:'absolute',width:150,height:150,borderRadius:75,right:-72,top:-88,backgroundColor:'rgba(232,189,87,.12)'}}/>
@@ -72,6 +72,7 @@ export function SubscriptionPanel({status,palette:_palette,onChange,onRefresh,on
    <Benefit label="Form Inspection"/>
    <Benefit label="Cards workout view"/>
    <Benefit label="Cyberpunk theme"/>
+   <Benefit label="Platinum theme"/>
    <Benefit label="Unlimited workout splits"/>
    <Benefit label="Live cross-device sync"/>
    <Benefit label="Custom training plan builder"/>
