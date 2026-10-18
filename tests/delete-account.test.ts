@@ -50,6 +50,7 @@ for (const google of [false, true]) test(`no uploaded photo skips Storage (${goo
   assert.equal(flow.stages.includes('Removing your profile photo…'), false);
   assert.ok(flow.calls.includes('delete:users/qa-user/activeWorkouts/current/sets/qa'));
   assert.ok(flow.calls.includes('delete:users/qa-user/settings/qa'));
+  assert.ok(flow.calls.includes('delete:users/qa-user/coachConversations/qa'));
   assert.equal(flow.calls.at(-1), 'delete-auth');
 });
 for (const storageCode of ['', 'storage/object-not-found']) test(`uploaded photo ${storageCode ? 'already missing' : 'exists'} permits complete deletion`, async () => {

@@ -28,7 +28,9 @@ const limiters: Record<AIFeature, Ratelimit> | null = redis
     }
   : null;
 
-export async function checkAIRequestLimit(request: Request, feature: AIFeature) {
+export async function checkAIRequestLimit(request: Request, feature: AIFeature, verifiedUid?:string) {
+  let uid=verifiedUid;
+  if(!uid){
   const authorization = request.headers.get('authorization');
   const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
 
@@ -40,7 +42,7 @@ export async function checkAIRequestLimit(request: Request, feature: AIFeature) 
     return Response.json({ error: 'Sign in to use AI features.' }, { status: 401 });
   }
 
-  let uid: string;
+
   let firebaseResponse: Response;
   try {
     firebaseResponse = await fetch(
@@ -76,6 +78,8 @@ export async function checkAIRequestLimit(request: Request, feature: AIFeature) 
     return Response.json({ error: 'Your session has expired. Sign in again.' }, { status: 401 });
   }
   uid = verifiedUser.localId;
+
+  }
 
   if (!limiters) {
     console.error('[AI rate limit] Upstash Redis is not configured.');

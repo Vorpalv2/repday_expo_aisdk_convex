@@ -1,4 +1,7 @@
 import Constants from 'expo-constants';
+import {fetch as streamFetch} from 'expo/fetch';
+import {readCoachStream} from '../lib/coachStream';
+import type {CoachMessage} from '../lib/coachConversation';
 import { Platform } from 'react-native';
 import { DEFAULT_AI_COACH_MODEL, type AICoachModelId } from './aiModels';
 import { auth } from './firebase/client';
@@ -35,12 +38,13 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 export async function askCoachQuestion(
-  question: string,
-  context: string,
-  model: AICoachModelId = DEFAULT_AI_COACH_MODEL,
-) {
-  const result = await post<{ answer: string }>('/api/coach', { question, context, model });
-  return result.answer;
+ question:string, context:string, model:AICoachModelId=DEFAULT_AI_COACH_MODEL,
+ options:{messages?:CoachMessage[];onText?:(text:string)=>void;signal?:AbortSignal}={},
+){
+ const user=auth?.currentUser;if(!user)throw new Error('Sign in to use AI features.');
+ const token=await user.getIdToken();
+ const response=await streamFetch(`${getApiBaseUrl()}/api/coach`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({question,context,model,messages:options.messages?.slice(-12).map(message=>({role:message.role,text:message.text}))}),signal:options.signal});
+ return readCoachStream(response as unknown as Response,options.onText||(()=>{}),options.signal);
 }
 
 export async function analyzeWorkoutNote(note: string) {

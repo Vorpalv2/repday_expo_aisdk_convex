@@ -12,6 +12,19 @@ service cloud.firestore {
         data.data.name is string && data.data.moves is list && data.position is number;
     }
     function validPrivate(data, uid) { return data is map && validUser(data, uid); }
+    // Private AI Coach transcripts: one bounded document per conversation.
+    function validCoach(data) {
+      return data.keys().hasOnly(['version','title','preview','contextTitle','contextText','transcript','createdAt','updatedAt','revision']) &&
+        data.keys().hasAll(['version','title','preview','contextTitle','contextText','transcript','createdAt','updatedAt','revision']) &&
+        data.version == 1 && data.title is string && data.title.size() <= 100 &&
+        data.preview is string && data.preview.size() <= 200 &&
+        data.contextTitle is string && data.contextTitle.size() <= 150 &&
+        data.contextText is string && data.contextText.size() <= 4000 &&
+        data.transcript is string && data.transcript.size() <= 200000 &&
+        data.createdAt is number && data.createdAt > 0 &&
+        data.updatedAt is number && data.updatedAt >= data.createdAt &&
+        data.revision is int && data.revision > 0;
+    }
     match /planTemplates/{templateId} {
       allow get: if request.auth != null && templateId == 'catalog-v1' && resource.data.published == true;
       allow list, write: if false;
@@ -26,6 +39,14 @@ service cloud.firestore {
         allow read, delete: if owner(uid);
         allow update: if owner(uid) && validSplit(request.resource.data) &&
           request.resource.data.clientId == resource.data.clientId;
+      }
+      match /coachConversations/{id} {
+        allow read, delete: if owner(uid);
+        allow create: if owner(uid) && validCoach(request.resource.data) && request.resource.data.revision == 1;
+        allow update: if owner(uid) && validCoach(request.resource.data) &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          request.resource.data.updatedAt >= resource.data.updatedAt &&
+          request.resource.data.revision == resource.data.revision + 1;
       }
       match /{kind}/{id} {
         allow read, delete: if owner(uid) && kind in ['settings','history','activeWorkouts','profilePhotos'];

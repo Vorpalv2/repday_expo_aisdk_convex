@@ -18,7 +18,7 @@ import { auth, db, storage } from './client';
 import { billingRequest } from '../billing';
 import { reauthenticateGoogleUser } from './googleSignIn';
 
-const USER_COLLECTIONS = ['settings', 'splits', 'history', 'activeWorkouts', 'profilePhotos'] as const;
+const USER_COLLECTIONS = ['settings', 'splits', 'history', 'activeWorkouts', 'profilePhotos', 'coachConversations'] as const;
 
 async function reauthenticatePassword(user: User, password: string) {
   if (!user.email) throw new Error('Enter your password to confirm account deletion.');
