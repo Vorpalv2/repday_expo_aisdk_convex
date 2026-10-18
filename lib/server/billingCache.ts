@@ -3,7 +3,7 @@ import { readDocument } from './firebaseAdmin';
 
 const PAID_CACHE_SECONDS = 4 * 60 * 60;
 const OTHER_CACHE_SECONDS = 5 * 60;
-const keyFor = (uid: string) => `repday:billing:account:v1:${uid}`;
+const keyFor = (uid: string) => `repday:billing:account:v2:${process.env.RAZORPAY_MODE==='live'?'live':'test'}:${uid}`;
 let client: Redis | null = null;
 
 function redis() {

@@ -10,8 +10,8 @@ test('checkout HMAC binds payment to server subscription; raw webhook body is si
  assert.equal(await verifySignature(body+' ',signature,secret),false);
  assert.equal(await verifySignature(body,'invalid',secret),false);
 });
-test('access requires a fully paid INR 1 invoice for the correct subscription',()=>{
- const valid={subscription_id:'sub_a',status:'paid',currency:'INR',amount_paid:100,amount_due:0,billing_end:2000000000};
+test('access requires a fully paid configured INR invoice for the correct subscription',()=>{
+ const valid={subscription_id:'sub_a',status:'paid',currency:'INR',amount_paid:7500,amount_due:0,billing_end:2000000000};
  assert.equal(paidThrough([valid],'sub_a'),2000000000000);
  for(const patch of [{status:'issued'},{currency:'USD'},{amount_paid:0},{amount_due:1},{subscription_id:'sub_b'},{billing_end:null}])assert.equal(paidThrough([{...valid,...patch}],'sub_a'),0);
  assert.equal(paidThrough([{...valid,billing_end:100},valid],'sub_a'),2000000000000);

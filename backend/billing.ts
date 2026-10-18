@@ -19,8 +19,8 @@ async function loadCheckout(){
  scriptPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://checkout.razorpay.com/v1/checkout.js';script.async=true;const timeout=setTimeout(()=>{script.remove();scriptPromise=null;reject(new Error('Checkout took too long to load. Please retry.'));},15000);script.onload=()=>{clearTimeout(timeout);resolve();};script.onerror=()=>{clearTimeout(timeout);script.remove();scriptPromise=null;reject(new Error('Could not load Razorpay checkout. Please retry.'));};document.head.appendChild(script);});
  return scriptPromise;
 }
-export async function startSandboxCheckout():Promise<BillingStatus|null>{
- if(Platform.OS!=='web')throw new Error('Open Repday in your browser to use sandbox checkout.');
+export async function startCheckout():Promise<BillingStatus|null>{
+ if(Platform.OS!=='web')throw new Error('Open Repday in your browser to subscribe.');
  let data:{subscriptionId:string;keyId:string;email:string;mode:string;amountPaise:number};
  try{data=await billingRequest('/api/billing/subscribe',{});}catch(error){
   if(error instanceof BillingApiError&&error.code==='SUBSCRIPTION_REFRESH_REQUIRED'){
@@ -30,11 +30,11 @@ export async function startSandboxCheckout():Promise<BillingStatus|null>{
   }
   throw error;
  }
- if(data.mode!=='test'||!data.keyId.startsWith('rzp_test_'))throw new Error('Only Test Mode checkout is enabled.');
+ if(!['test','live'].includes(data.mode)||!data.keyId.startsWith(`rzp_${data.mode}_`))throw new Error('Checkout configuration is invalid. Please retry.');
  await loadCheckout();
  return new Promise((resolve,reject)=>{
  let verifying=false;
- const checkout=new (window as any).Razorpay({key:data.keyId,subscription_id:data.subscriptionId,name:'Repday Plus',image:'https://repday.expo.app/icons/repday-login-192.png',description:`₹${data.amountPaise/100}/month · Test Mode · No real money`,prefill:{email:data.email},theme:{color:'#3478f6'},handler:async(response:unknown)=>{verifying=true;let lastError:unknown;for(let attempt=0;attempt<6;attempt+=1){try{const status=await billingRequest<BillingStatus>('/api/billing/verify',response);if(status.premium||attempt===5){resolve(status);return;}}catch(error){lastError=error;if(!(error instanceof BillingApiError)||![409,503].includes(error.status)||attempt===5)break;}await wait(2000);}reject(lastError instanceof Error?lastError:new Error('Subscription verification is still pending. Please retry shortly.'));},modal:{ondismiss:()=>{if(!verifying)void billingRequest<BillingStatus>('/api/billing/refresh',{}).then(status=>resolve(status.premium?status:null)).catch(()=>resolve(null));}}});
- checkout.on('payment.failed',()=>{reject(new Error('Test payment failed. You can retry checkout.'));checkout.close();});checkout.open();
+ const checkout=new (window as any).Razorpay({key:data.keyId,subscription_id:data.subscriptionId,name:'Repday Plus',image:'https://repday.expo.app/icons/repday-login-192.png',description:`₹${data.amountPaise/100}/month${data.mode==='test'?' · Test Mode · No real money':''}`,prefill:{email:data.email},theme:{color:'#3478f6'},handler:async(response:unknown)=>{verifying=true;let lastError:unknown;for(let attempt=0;attempt<6;attempt+=1){try{const status=await billingRequest<BillingStatus>('/api/billing/verify',response);if(status.premium||attempt===5){resolve(status);return;}}catch(error){lastError=error;if(!(error instanceof BillingApiError)||![409,503].includes(error.status)||attempt===5)break;}await wait(2000);}reject(lastError instanceof Error?lastError:new Error('Subscription verification is still pending. Please retry shortly.'));},modal:{ondismiss:()=>{if(!verifying)void billingRequest<BillingStatus>('/api/billing/refresh',{}).then(status=>resolve(status.premium?status:null)).catch(()=>resolve(null));}}});
+ checkout.on('payment.failed',()=>{reject(new Error('Payment failed. You can retry checkout.'));checkout.close();});checkout.open();
  });
 }

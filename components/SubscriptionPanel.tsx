@@ -1,6 +1,6 @@
 import React,{useState} from 'react';
 import { ActivityIndicator,Pressable,Text,View } from 'react-native';
-import { billingRequest,startSandboxCheckout } from '../backend/billing';
+import { billingRequest,startCheckout } from '../backend/billing';
 import type { BillingStatus } from '../lib/billingTypes';
 
 type Palette={ink:string;muted:string;surface:string;line:string;blue:string;button:string;buttonText:string};
@@ -56,14 +56,14 @@ export function SubscriptionPanel({status,palette:_palette,onChange,onRefresh,on
     </View>
    </Pressable>
    <View style={{flexDirection:'row',alignItems:'center',gap:8}}>
-    <View style={{backgroundColor:manual?PLUS_GOLD.background:'rgba(232,189,87,.13)',paddingHorizontal:10,paddingVertical:6,borderRadius:14,borderWidth:1,borderColor:manual?PLUS_GOLD.border:MEMBERSHIP_COLORS.line}}><Text style={{fontSize:10,fontWeight:'900',letterSpacing:.7,color:manual?PLUS_GOLD.ink:MEMBERSHIP_COLORS.goldSoft}}>{manual?'COMPLIMENTARY':'TEST MODE'}</Text></View>
+    <View style={{backgroundColor:manual?PLUS_GOLD.background:'rgba(232,189,87,.13)',paddingHorizontal:10,paddingVertical:6,borderRadius:14,borderWidth:1,borderColor:manual?PLUS_GOLD.border:MEMBERSHIP_COLORS.line}}><Text style={{fontSize:10,fontWeight:'900',letterSpacing:.7,color:manual?PLUS_GOLD.ink:MEMBERSHIP_COLORS.goldSoft}}>{manual?'COMPLIMENTARY':status?.mode==='live'?'MEMBERSHIP':'TEST MODE'}</Text></View>
     {onClose?<Pressable accessibilityRole="button" accessibilityLabel="Close subscription popup" onPress={onClose} style={{width:34,height:34,borderRadius:17,backgroundColor:MEMBERSHIP_COLORS.surfaceStrong,borderWidth:1,borderColor:MEMBERSHIP_COLORS.softLine,alignItems:'center',justifyContent:'center'}}><Text style={{fontSize:22,lineHeight:25,color:MEMBERSHIP_COLORS.ink}}>×</Text></Pressable>:null}
     {!onClose?<Pressable accessibilityRole="button" accessibilityLabel={expanded?'Collapse Repday Plus membership':'Expand Repday Plus membership'} accessibilityState={{expanded}} onPress={()=>setExpanded(value=>!value)} hitSlop={8} style={{width:28,height:28,alignItems:'center',justifyContent:'center'}}><Text style={{fontSize:19,lineHeight:22,fontWeight:'800',color:MEMBERSHIP_COLORS.goldSoft,transform:[{rotate:expanded?'180deg':'0deg'}]}}>⌄</Text></Pressable>:null}
    </View>
   </View>
 
   {expanded?<>
-  {!manual?<View style={{flexDirection:'row',alignItems:'flex-end',gap:6}}><Text style={{fontSize:34,lineHeight:39,fontWeight:'900',color:MEMBERSHIP_COLORS.ink}}>₹{monthlyPrice}</Text><Text style={{fontSize:14,lineHeight:24,color:MEMBERSHIP_COLORS.muted}}>/ month · sandbox</Text></View>:null}
+  {!manual?<View style={{flexDirection:'row',alignItems:'flex-end',gap:6}}><Text style={{fontSize:34,lineHeight:39,fontWeight:'900',color:MEMBERSHIP_COLORS.ink}}>₹{monthlyPrice}</Text><Text style={{fontSize:14,lineHeight:24,color:MEMBERSHIP_COLORS.muted}}>/ month{status?.mode==='test'?' · sandbox':''}</Text></View>:null}
 
   <View style={{gap:8}}>
    <Benefit label="AI Coach"/>
@@ -82,12 +82,12 @@ export function SubscriptionPanel({status,palette:_palette,onChange,onRefresh,on
   {status?.testAccessDurationSeconds===60&&!manual?<View style={{padding:12,borderRadius:14,backgroundColor:'rgba(246,227,167,.11)',borderWidth:1,borderColor:MEMBERSHIP_COLORS.line}}><Text style={{color:MEMBERSHIP_COLORS.goldSoft,fontSize:12,lineHeight:18,fontWeight:'700'}}>{status.paidUntil?premium?`1-minute sandbox test · Access ends at ${new Date(status.paidUntil).toLocaleTimeString()}`:'1-minute sandbox test · Paid access has expired.':'1-minute sandbox test · Access expires 60 seconds after payment is verified.'}</Text></View>:null}
 
   {busy?<ActivityIndicator color={PLUS_GOLD.background}/>:null}
-  {status?.configured&&!premium&&['free','created','cancelled','completed','expired'].includes(status.status)?<Pressable accessibilityRole="button" disabled={busy} style={[button,{opacity:busy?.65:1}]} onPress={()=>void run(async()=>{const value=await startSandboxCheckout();if(value){onChange(value);onNotify(value.premium?'Repday Plus is now active!':'Subscription activation is pending. Try Refresh access shortly.');}else onNotify('Checkout closed. You can try again anytime.');},true)}><Text style={{fontSize:16,fontWeight:'900',color:PLUS_GOLD.ink}}>{status.status==='created'?'Continue test checkout':`Try Plus · ₹${monthlyPrice}/month`}</Text></Pressable>:null}
+  {status?.configured&&!premium&&['free','created','cancelled','completed','expired'].includes(status.status)?<Pressable accessibilityRole="button" disabled={busy} style={[button,{opacity:busy?.65:1}]} onPress={()=>void run(async()=>{const value=await startCheckout();if(value){onChange(value);onNotify(value.premium?'Repday Plus is now active!':'Subscription activation is pending. Try Refresh access shortly.');}else onNotify('Checkout closed. You can try again anytime.');},true)}><Text style={{fontSize:16,fontWeight:'900',color:PLUS_GOLD.ink}}>{status.status==='created'?'Continue checkout':`Try Plus · ₹${monthlyPrice}/month`}</Text></Pressable>:null}
   {status?.subscriptionId&&!['cancelled','completed','expired'].includes(status.status)&&!status.cancellationScheduled?<Pressable accessibilityRole="button" disabled={busy} onPress={()=>setConfirm(true)} style={{minHeight:40,alignItems:'center',justifyContent:'center'}}><Text style={{color:MEMBERSHIP_COLORS.muted,fontSize:13,fontWeight:'700'}}>Cancel subscription</Text></Pressable>:null}
   {confirm?<View style={{gap:10,padding:13,borderWidth:1,borderColor:MEMBERSHIP_COLORS.line,borderRadius:17,backgroundColor:MEMBERSHIP_COLORS.surface}}><Text style={{color:MEMBERSHIP_COLORS.ink,lineHeight:20}}>Cancel monthly renewal? Paid access remains until the end of the paid period.</Text><Pressable accessibilityRole="button" disabled={busy} style={button} onPress={()=>void run(async()=>{const value=await billingRequest<BillingStatus>('/api/billing/cancel',{});onChange(value);setConfirm(false);onNotify(value.premium&&value.paidUntil?`Renewal cancelled. Plus stays active until ${new Date(value.paidUntil).toLocaleDateString()}.`:'Subscription cancelled.');},true)}><Text style={{color:PLUS_GOLD.ink,fontWeight:'900'}}>Confirm cancellation</Text></Pressable><Pressable onPress={()=>setConfirm(false)}><Text style={{color:MEMBERSHIP_COLORS.goldSoft,textAlign:'center',fontWeight:'700'}}>Keep subscription</Text></Pressable></View>:null}
 
   <Pressable accessibilityRole="button" accessibilityLabel="Refresh subscription status" disabled={busy} onPress={()=>void run(async()=>{const value=await onRefresh() as BillingStatus|null;if(value?.premium&&!premium)onNotify('Repday Plus is now active!');})} style={{minHeight:40,borderRadius:14,borderWidth:1,borderColor:MEMBERSHIP_COLORS.softLine,backgroundColor:MEMBERSHIP_COLORS.surface,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,paddingHorizontal:14}}><Text style={{fontSize:17,color:PLUS_GOLD.background}}>↻</Text><Text style={{color:MEMBERSHIP_COLORS.goldSoft,fontSize:13,fontWeight:'800'}}>Refresh access</Text></Pressable>
-  {!status?.configured&&status&&!premium?<Text style={{color:MEMBERSHIP_COLORS.muted,fontSize:13,lineHeight:19}}>Sandbox checkout is not configured on this deployment yet.</Text>:null}
+  {!status?.configured&&status&&!premium?<Text style={{color:MEMBERSHIP_COLORS.muted,fontSize:13,lineHeight:19}}>Checkout is not configured on this deployment yet.</Text>:null}
   {message||loadError?<Text accessibilityRole="alert" style={{color:MEMBERSHIP_COLORS.danger,fontSize:13,lineHeight:19}}>{message||loadError}</Text>:null}
   </>:null}
  </View>;

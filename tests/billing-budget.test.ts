@@ -8,7 +8,7 @@ import ts from 'typescript';
 
 // Run the real route, auth and Firestore REST code against in-memory provider
 // responses. Each fixture has a cold OAuth token/cache and a hard 10-fetch cap.
-async function fixture(){
+async function fixture(mode:'test'|'live'='test'){
  const pair=await webcrypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
  const pem=`-----BEGIN PRIVATE KEY-----\n${Buffer.from(await webcrypto.subtle.exportKey('pkcs8',pair.privateKey)).toString('base64')}\n-----END PRIVATE KEY-----`;
  const records=new Map<string,any>(),cache=new Map<string,any>(),versions=new Map<string,string>();
@@ -58,7 +58,7 @@ async function fixture(){
   async set(key:string,value:any){return this.command(['SET',key,JSON.stringify(value)]);}
   async del(key:string){return this.command(['DEL',key]);}
  }
- const env={EXPO_PUBLIC_FIREBASE_PROJECT_ID:'fixture',EXPO_PUBLIC_FIREBASE_API_KEY:'fixture',FIREBASE_ADMIN_SERVICE_ACCOUNT:JSON.stringify({project_id:'fixture',client_email:'test@example.test',private_key:pem}),UPSTASH_REDIS_REST_URL:'https://redis.fixture',UPSTASH_REDIS_REST_TOKEN:'fixture',RAZORPAY_MODE:'test',RAZORPAY_KEY_ID:'rzp_test_fixture',RAZORPAY_KEY_SECRET:'secret',RAZORPAY_PLAN_ID:'plan_fixture',RAZORPAY_PLAN_AMOUNT_PAISE:'7500',RAZORPAY_WEBHOOK_SECRET:'secret',BILLING_ENABLED:'true'};
+ const env={EXPO_PUBLIC_FIREBASE_PROJECT_ID:'fixture',EXPO_PUBLIC_FIREBASE_API_KEY:'fixture',FIREBASE_ADMIN_SERVICE_ACCOUNT:JSON.stringify({project_id:'fixture',client_email:'test@example.test',private_key:pem}),UPSTASH_REDIS_REST_URL:'https://redis.fixture',UPSTASH_REDIS_REST_TOKEN:'fixture',RAZORPAY_MODE:mode,RAZORPAY_KEY_ID:`rzp_${mode}_fixture`,RAZORPAY_KEY_SECRET:'secret',RAZORPAY_PLAN_ID:'plan_fixture',RAZORPAY_PLAN_AMOUNT_PAISE:'7500',RAZORPAY_WEBHOOK_SECRET:'secret',BILLING_ENABLED:'true'};
  const modules=new Map<string,any>();
  function load(path:string):any{
   if(modules.has(path))return modules.get(path);
@@ -72,7 +72,7 @@ async function fixture(){
  const admin=load('lib/server/firebaseAdmin');
  const seed=(value:any)=>{records.set('billingAccounts/owner',admin.encodeFields(value));versions.set('billingAccounts/owner','2026-10-17T00:00:00.000000Z');records.set('billingSubscriptions/sub_fixture',admin.encodeFields({uid:'owner'}));versions.set('billingSubscriptions/sub_fixture','2026-10-17T00:00:00.000000Z');};
  const request=(body?:any)=>new Request('https://app.fixture/api/billing',{method:body?'POST':'GET',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
- return {load,request,calls:()=>calls,seed,records,admin,end,setPaid:()=>{paid=true;providerStatus='active';},setTerminal:()=>{providerStatus='cancelled';},conflict:()=>{beforeCommit=()=>versions.set('billingAccounts/owner','concurrent-change');}};
+ return {load,request,calls:()=>calls,seed,records,admin,end,env,setPaid:()=>{paid=true;providerStatus='active';},setTerminal:()=>{providerStatus='cancelled';},conflict:()=>{beforeCommit=()=>versions.set('billingAccounts/owner','concurrent-change');}};
 }
 test('cold new-account checkout stays within the hosted 10-call budget',async()=>{
  const f=await fixture();const r=await f.load('app/api/billing/subscribe+api').POST(f.request({}));assert.equal(r.status,200,JSON.stringify(await r.clone().json()));assert.equal((await r.json()).subscriptionId,'sub_fixture');assert.equal(f.calls(),9);
@@ -113,4 +113,32 @@ test('explicit refresh recovers a paid subscription still marked created, in nin
 test('checkout reports a recoverable code when provider is paid but the account is stale',async()=>{
  const f=await fixture();f.seed({subscriptionId:'sub_fixture',status:'created',paidUntil:null});f.setPaid();
  const r=await f.load('app/api/billing/subscribe+api').POST(f.request({}));assert.equal(r.status,409);assert.equal((await r.json()).code,'SUBSCRIPTION_REFRESH_REQUIRED');assert.equal(f.calls(),5);
+});
+
+for(const action of ['verify','refresh','cancel','webhook'] as const)test(`live ${action} preserves monthly access and fits the hosted call limit`,async()=>{
+ const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',status:'active',paidUntil:f.end*1000,testAccessDurationSeconds:60,testAccessExpiresAt:Date.now()+60000});f.setPaid();
+ let request=f.request({});
+ if(action==='verify')request=f.request({razorpay_subscription_id:'sub_fixture',razorpay_payment_id:'pay_fixture',razorpay_signature:createHmac('sha256','secret').update('pay_fixture|sub_fixture').digest('hex')});
+ if(action==='webhook'){
+  const body=JSON.stringify({event:'subscription.charged',payload:{subscription:{entity:{id:'sub_fixture'}}}});
+  request=new Request('https://app.fixture/api/billing/webhook',{method:'POST',headers:{'x-razorpay-signature':createHmac('sha256','secret').update(body).digest('hex')},body});
+ }
+ const response=await f.load(`app/api/billing/${action}+api`).POST(request);assert.equal(response.status,200,JSON.stringify(await response.clone().json()));
+ if(action!=='webhook'){const value=await response.json();assert.equal(value.premium,true);assert.equal(value.paidUntil,f.end*1000);assert.equal(value.mode,'live');assert.equal(value.testAccessDurationSeconds,null);if(action==='cancel')assert.equal(value.cancellationScheduled,true);}
+ assert.ok(f.calls()<=10);
+});
+test('live checkout ignores a legacy test subscription and never fetches it with live keys',async()=>{
+ const f=await fixture('live');f.seed({mode:'test',subscriptionId:'sub_oldTest',paidUntil:f.end*1000});
+ const r=await f.load('app/api/billing/subscribe+api').POST(f.request({}));assert.equal(r.status,200,JSON.stringify(await r.clone().json()));assert.equal((await r.json()).mode,'live');assert.equal(f.calls(),9);
+});
+test('live status rejects sandbox paidUntil but preserves complimentary access',async()=>{
+ const f=await fixture('live');const billing=f.load('lib/server/billing');
+ const old={mode:'test',subscriptionId:'sub_oldTest',paidUntil:f.end*1000};
+ assert.equal(billing.billingStatusFromAccount(old).premium,false);assert.equal(billing.billingStatusFromAccount(old).subscriptionId,null);
+ assert.equal(billing.billingStatusFromAccount({...old,manualPlusAccess:true}).accessSource,'manual');
+});
+test('existing live plan retains its invoice price when the configured offer changes',async()=>{
+ const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',planId:'plan_fixture',amountPaise:7500,paidUntil:null});f.setPaid();f.env.RAZORPAY_PLAN_ID='plan_newOffer';f.env.RAZORPAY_PLAN_AMOUNT_PAISE='100';
+ const billing=f.load('lib/server/billing');const value=await billing.refreshSubscription('owner','sub_fixture');assert.equal(value.paidUntil,f.end*1000);
+ assert.equal(billing.paidThrough([{subscription_id:'sub_fixture',status:'paid',currency:'INR',amount_paid:100,amount_due:0,billing_end:f.end}],'sub_fixture',100),f.end*1000);
 });

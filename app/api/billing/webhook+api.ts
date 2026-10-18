@@ -2,7 +2,7 @@ import { billingError,billingResponse } from '../../../lib/server/billingAuth';
 import { billingConfigured,refreshSubscription,verifySignature } from '../../../lib/server/billing';
 import { readDocument,ServerError } from '../../../lib/server/firebaseAdmin';
 export async function POST(request:Request){try{
- if(!billingConfigured())throw new ServerError(503,'Sandbox billing is not configured.');
+ if(!billingConfigured())throw new ServerError(503,'Billing is not configured.');
  const raw=await request.text();if(raw.length>250000)throw new ServerError(413,'Webhook too large.');
  if(!await verifySignature(raw,request.headers.get('x-razorpay-signature')||'',process.env.RAZORPAY_WEBHOOK_SECRET!))throw new ServerError(401,'Invalid webhook signature.');
  let event:any;try{event=JSON.parse(raw);}catch{throw new ServerError(400,'Invalid webhook JSON.');}
