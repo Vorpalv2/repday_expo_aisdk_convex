@@ -1,6 +1,6 @@
 import React,{useState} from 'react';
 import { ActivityIndicator,Pressable,Text,View } from 'react-native';
-import { billingRequest,startCheckout } from '../backend/billing';
+import { billingRequest,startCheckout,retryCheckout } from '../backend/billing';
 import type { BillingStatus } from '../lib/billingTypes';
 
 type Palette={ink:string;muted:string;surface:string;line:string;blue:string;button:string;buttonText:string};
@@ -34,6 +34,8 @@ function Benefit({label}:{label:string}){
 
 export function SubscriptionPanel({status,palette:_palette,onChange,onRefresh,onNotify,error:loadError,titleFont,onClose}:{status:BillingStatus|null;palette:Palette;onChange:(value:BillingStatus)=>void;onRefresh:()=>Promise<unknown>;onNotify:(message:string)=>void;error?:string;titleFont?:string;onClose?:()=>void}){
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirm,setConfirm]=useState(false);
+ const [retryAvailable,setRetryAvailable]=useState(false);
+ const paymentFailed=(detail:string)=>{setRetryAvailable(true);onNotify(detail);};
  const [expanded,setExpanded]=useState(!!onClose);
  const manual=status?.accessSource==='manual';
  const premium=!!status?.premium;
@@ -82,7 +84,11 @@ export function SubscriptionPanel({status,palette:_palette,onChange,onRefresh,on
   {status?.testAccessDurationSeconds===60&&!manual?<View style={{padding:12,borderRadius:14,backgroundColor:'rgba(246,227,167,.11)',borderWidth:1,borderColor:MEMBERSHIP_COLORS.line}}><Text style={{color:MEMBERSHIP_COLORS.goldSoft,fontSize:12,lineHeight:18,fontWeight:'700'}}>{status.paidUntil?premium?`1-minute sandbox test · Access ends at ${new Date(status.paidUntil).toLocaleTimeString()}`:'1-minute sandbox test · Paid access has expired.':'1-minute sandbox test · Access expires 60 seconds after payment is verified.'}</Text></View>:null}
 
   {busy?<ActivityIndicator color={PLUS_GOLD.background}/>:null}
-  {status?.configured&&!premium&&['free','created','cancelled','completed','expired'].includes(status.status)?<Pressable accessibilityRole="button" disabled={busy} style={[button,{opacity:busy?.65:1}]} onPress={()=>void run(async()=>{const value=await startCheckout(onNotify);if(value){onChange(value);onNotify(value.premium?'Repday Plus is now active!':'Subscription activation is pending. Try Refresh access shortly.');}else onNotify('Checkout closed. You can try again anytime.');},true)}><Text style={{fontSize:16,fontWeight:'900',color:PLUS_GOLD.ink}}>{status.status==='created'?'Continue checkout':`Try Plus · ₹${monthlyPrice}/month`}</Text></Pressable>:null}
+  {status?.configured&&!premium&&['free','created','cancelled','completed','expired'].includes(status.status)?<Pressable accessibilityRole="button" disabled={busy} style={[button,{opacity:busy?.65:1}]} onPress={()=>void run(async()=>{const value=await startCheckout(paymentFailed);if(value){setRetryAvailable(!value.premium);onChange(value);onNotify(value.premium?'Repday Plus is now active!':'Subscription activation is pending. Try Refresh access shortly.');}else onNotify('Checkout closed. You can try again anytime.');},true)}><Text style={{fontSize:16,fontWeight:'900',color:PLUS_GOLD.ink}}>{status.status==='created'?'Continue checkout':`Try Plus · ₹${monthlyPrice}/month`}</Text></Pressable>:null}
+  {status?.configured&&!premium&&(retryAvailable||status.status==='created')?<View style={{gap:8}}>
+   <Text style={{color:MEMBERSHIP_COLORS.muted,fontSize:12,lineHeight:18}}>UPI says AutoPay already exists? Close checkout, then retry here. Only a confirmed rejected authorization can be replaced.</Text>
+   <Pressable accessibilityRole="button" disabled={busy} style={[button,{opacity:busy?.65:1}]} onPress={()=>void run(async()=>{const value=await retryCheckout(paymentFailed);if(value){setRetryAvailable(!value.premium);onChange(value);onNotify(value.premium?'Repday Plus is now active!':'Subscription activation is pending. Try Refresh access shortly.');}else onNotify('Checkout closed. You can try again anytime.');},true)}><Text style={{fontSize:16,fontWeight:'900',color:PLUS_GOLD.ink}}>Retry payment</Text></Pressable>
+  </View>:null}
   {status?.subscriptionId&&!['cancelled','completed','expired'].includes(status.status)&&!status.cancellationScheduled?<Pressable accessibilityRole="button" disabled={busy} onPress={()=>setConfirm(true)} style={{minHeight:40,alignItems:'center',justifyContent:'center'}}><Text style={{color:MEMBERSHIP_COLORS.muted,fontSize:13,fontWeight:'700'}}>Cancel subscription</Text></Pressable>:null}
   {confirm?<View style={{gap:10,padding:13,borderWidth:1,borderColor:MEMBERSHIP_COLORS.line,borderRadius:17,backgroundColor:MEMBERSHIP_COLORS.surface}}><Text style={{color:MEMBERSHIP_COLORS.ink,lineHeight:20}}>Cancel monthly renewal? Paid access remains until the end of the paid period.</Text><Pressable accessibilityRole="button" disabled={busy} style={button} onPress={()=>void run(async()=>{const value=await billingRequest<BillingStatus>('/api/billing/cancel',{});onChange(value);setConfirm(false);onNotify(value.premium&&value.paidUntil?`Renewal cancelled. Plus stays active until ${new Date(value.paidUntil).toLocaleDateString()}.`:'Subscription cancelled.');},true)}><Text style={{color:PLUS_GOLD.ink,fontWeight:'900'}}>Confirm cancellation</Text></Pressable><Pressable onPress={()=>setConfirm(false)}><Text style={{color:MEMBERSHIP_COLORS.goldSoft,textAlign:'center',fontWeight:'700'}}>Keep subscription</Text></Pressable></View>:null}
 

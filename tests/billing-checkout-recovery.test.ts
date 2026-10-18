@@ -73,3 +73,20 @@ test('late failure and dismiss events cannot overwrite successful verification',
  checkout.events['payment.failed']();checkout.options.modal.ondismiss();
  assert.deepEqual(f.calls,['/api/billing/subscribe','/api/billing/verify']);
 });
+
+test('explicit recovery finishes verification and retirement before opening fresh checkout',async()=>{
+ const calls:string[]=[],exports:any={};
+ class Checkout{constructor(options:any){assert.equal(options.subscription_id,'sub_new');}on(){}open(){calls.push('opened');}}
+ vm.runInNewContext(compiled,{exports,require:(name:string)=>name==='react-native'?{Platform:{OS:'web'}}:name==='./firebase/client'?{auth:{currentUser:{getIdToken:async()=>'fixture'}}}:{getApiBaseUrl:()=>''},AbortSignal,JSON,window:{Razorpay:Checkout},fetch:async(path:string,options:any)=>{
+  const action=JSON.parse(options.body).action;calls.push(action||path);
+  return Response.json(action==='prepare'?{stage:'verify',proof:'first'}:action==='verify'?{stage:'retire',proof:'second'}:action==='retire'?{stage:'ready'}:{subscriptionId:'sub_new',keyId:'rzp_live_fixture',mode:'live',amountPaise:100});
+ }});
+ void exports.retryCheckout();
+ for(let i=0;i<20&&!calls.includes('opened');i++)await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(calls,['prepare','verify','retire','/api/billing/subscribe','opened']);
+});
+test('blocked recovery never starts another subscription checkout',async()=>{
+ const calls:string[]=[],exports:any={};
+ vm.runInNewContext(compiled,{exports,require:(name:string)=>name==='react-native'?{Platform:{OS:'web'}}:name==='./firebase/client'?{auth:{currentUser:{getIdToken:async()=>'fixture'}}}:{getApiBaseUrl:()=>''},AbortSignal,JSON,fetch:async(path:string)=>{calls.push(path);return Response.json({error:'Mandate is pending.',code:'CHECKOUT_RETRY_BLOCKED'},{status:409});}});
+ await assert.rejects(exports.retryCheckout(),/Mandate is pending/);assert.deepEqual(calls,['/api/billing/retry-checkout']);
+});

@@ -76,3 +76,23 @@ export async function startCheckout(onPaymentFailure?:(message:string)=>void):Pr
  checkout.open();
  });
 }
+
+// Explicit recovery only: never retire a subscription from payment.failed itself.
+export async function retryCheckout(onPaymentFailure?:(message:string)=>void):Promise<BillingStatus|null>{
+ if(Platform.OS!=='web')throw new Error('Open Repday in your browser to subscribe.');
+ type Step={stage:'verify'|'retire'|'ready';proof?:string};
+ try{
+  let step=await billingRequest<Step>('/api/billing/retry-checkout',{action:'prepare'});
+  for(let count=0;step.stage!=='ready';count++){
+   if(count>=27||!step.proof||!['verify','retire'].includes(step.stage))throw new Error('Retry verification could not finish. Please try again.');
+   step=await billingRequest<Step>('/api/billing/retry-checkout',{action:step.stage,proof:step.proof});
+  }
+ }catch(error){
+  if(error instanceof BillingApiError&&error.code==='SUBSCRIPTION_REFRESH_REQUIRED'){
+   const status=await billingRequest<BillingStatus>('/api/billing/refresh',{});
+   if(status.premium)return status;
+  }
+  throw error;
+ }
+ return startCheckout(onPaymentFailure);
+}

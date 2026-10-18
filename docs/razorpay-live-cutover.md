@@ -109,3 +109,7 @@ Use the last known deployment and a consistent test-mode environment if rollback
 ## Follow-up: declined UPI attempt
 
 A live UPI decline exposed an app-side checkout lifecycle issue: Repday forcibly closed checkout on `payment.failed`, interrupting Razorpay's native retry flow. The client now keeps checkout open for retries, reports the failure through a toast, and guards late/double callbacks. See [the UPI retry incident](upi-checkout-retry-incident.md) for the evidence, limits of diagnosis, regression checks, and pending real-device verification.
+
+### Failed initial UPI authorization recovery
+
+The Plus popup now offers **Retry payment** after a failed attempt or for an outstanding created subscription. Close Razorpay checkout before selecting it. The staged server recovery verifies rejected/cancelled UPI token state and failed unpaid order payments, conditionally retires only that initial subscription, then opens a new checkout. Paid or pending authorization blocks the reset. No token/payment records are deleted. See [UPI retry incident and implementation](./upi-checkout-retry-incident.md) for the safeguards, request budgets, database impact and remaining phone test. This recovery has mocked verification; bank-app behavior still requires the live phone check.

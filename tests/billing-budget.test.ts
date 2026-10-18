@@ -14,6 +14,7 @@ async function fixture(mode:'test'|'live'='test'){
  const records=new Map<string,any>(),cache=new Map<string,any>(),versions=new Map<string,string>();
  let calls=0,revision=0,providerStatus='created',paid=false;
  const now=Date.now(),end=Math.floor(now/1000)+86400;
+ let retry:any=null;let cancellations=0;
  let beforeCommit:(()=>void)|undefined;
  const fetch=async(input:string,options:any={})=>{
   if(++calls>10)throw new Error('Too many subrequests by single Worker invocation.');
@@ -45,9 +46,12 @@ async function fixture(mode:'test'|'live'='test'){
   if(url.hostname==='api.razorpay.com'){
    if(url.pathname.includes('/plans/'))return Response.json({period:'monthly',interval:1,item:{amount:7500,currency:'INR'}});
    if(url.pathname==='/v1/subscriptions'&&options.method==='POST')return Response.json({id:'sub_fixture',plan_id:'plan_fixture',status:'created',notes:{firebase_uid:'owner'}});
-   if(url.pathname.endsWith('/cancel')){if(!body.cancel_at_cycle_end)providerStatus='cancelled';}
+   if(retry&&url.pathname.includes('/tokens/'))return Response.json({id:'token_fixture',method:'upi',recurring:false,recurring_details:{status:retry.tokenStatus}});
+   if(retry&&url.pathname.endsWith('/payments'))return Response.json({items:[{id:'pay_fixture',order_id:'order_fixture',customer_id:'cust_fixture',token_id:'token_fixture',status:retry.paymentStatus,method:'upi'}]});
+   if(retry&&url.pathname.endsWith('/invoices'))return Response.json({items:[{subscription_id:'sub_fixture',status:'issued',amount_paid:0,amount_due:7500,order_id:'order_fixture'}]});
+   if(url.pathname.endsWith('/cancel')){cancellations++;if(!body.cancel_at_cycle_end)providerStatus='cancelled';}
    if(url.pathname.endsWith('/invoices'))return Response.json({items:paid?[{subscription_id:'sub_fixture',status:'paid',currency:'INR',amount_paid:7500,amount_due:0,billing_end:end}]:[]});
-   return Response.json({id:'sub_fixture',plan_id:'plan_fixture',status:providerStatus,paid_count:paid?1:0,notes:{firebase_uid:'owner'}});
+   return Response.json({id:'sub_fixture',plan_id:'plan_fixture',status:providerStatus,paid_count:paid?1:0,...(retry?{auth_attempts:0,customer_id:'cust_fixture',current_start:null,current_end:null}:{}),notes:{firebase_uid:'owner'}});
   }
   throw new Error(`Unexpected fixture request: ${url.hostname}`);
  };
@@ -72,7 +76,7 @@ async function fixture(mode:'test'|'live'='test'){
  const admin=load('lib/server/firebaseAdmin');
  const seed=(value:any)=>{records.set('billingAccounts/owner',admin.encodeFields(value));versions.set('billingAccounts/owner','2026-10-17T00:00:00.000000Z');records.set('billingSubscriptions/sub_fixture',admin.encodeFields({uid:'owner'}));versions.set('billingSubscriptions/sub_fixture','2026-10-17T00:00:00.000000Z');};
  const request=(body?:any)=>new Request('https://app.fixture/api/billing',{method:body?'POST':'GET',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
- return {load,request,calls:()=>calls,seed,records,admin,end,env,setPaid:()=>{paid=true;providerStatus='active';},setTerminal:()=>{providerStatus='cancelled';},conflict:()=>{beforeCommit=()=>versions.set('billingAccounts/owner','concurrent-change');}};
+ return {retry:(tokenStatus='rejected',paymentStatus='failed')=>{retry={tokenStatus,paymentStatus};},cancellations:()=>cancellations,resetCalls:()=>{calls=0;},load,request,calls:()=>calls,seed,records,admin,end,env,setPaid:()=>{paid=true;providerStatus='active';},setTerminal:()=>{providerStatus='cancelled';},conflict:()=>{beforeCommit=()=>versions.set('billingAccounts/owner','concurrent-change');}};
 }
 test('cold new-account checkout stays within the hosted 10-call budget',async()=>{
  const f=await fixture();const r=await f.load('app/api/billing/subscribe+api').POST(f.request({}));assert.equal(r.status,200,JSON.stringify(await r.clone().json()));assert.equal((await r.json()).subscriptionId,'sub_fixture');assert.equal(f.calls(),9);
@@ -141,4 +145,42 @@ test('existing live plan retains its invoice price when the configured offer cha
  const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',planId:'plan_fixture',amountPaise:7500,paidUntil:null});f.setPaid();f.env.RAZORPAY_PLAN_ID='plan_newOffer';f.env.RAZORPAY_PLAN_AMOUNT_PAISE='100';
  const billing=f.load('lib/server/billing');const value=await billing.refreshSubscription('owner','sub_fixture');assert.equal(value.paidUntil,f.end*1000);
  assert.equal(billing.paidThrough([{subscription_id:'sub_fixture',status:'paid',currency:'INR',amount_paid:100,amount_due:0,billing_end:f.end}],'sub_fixture',100),f.end*1000);
+});
+
+async function retryStep(f:Awaited<ReturnType<typeof fixture>>,action:string,proof?:string){
+ const response=await f.load('app/api/billing/retry-checkout+api').POST(f.request({action,proof}));
+ return {status:response.status,...await response.json()};
+}
+async function retryProof(){
+ const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',status:'created',paidUntil:null});f.retry();
+ const prepared=await retryStep(f,'prepare');assert.equal(prepared.status,200);assert.equal(prepared.stage,'verify');assert.ok(f.calls()<=10);
+ f.resetCalls();const verified=await retryStep(f,'verify',prepared.proof);assert.equal(verified.status,200);assert.equal(verified.stage,'retire');assert.ok(f.calls()<=10);
+ return {proof:verified.proof,prepared:prepared.proof};
+}
+test('rejected UPI recovery retires only the unpaid checkout within ten cold calls',async()=>{
+ const {proof}=await retryProof();const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',status:'created',paidUntil:null});f.retry();
+ const result=await retryStep(f,'retire',proof);assert.equal(result.status,200,JSON.stringify(result));assert.equal(result.stage,'ready');assert.equal(f.cancellations(),1);assert.equal(f.calls(),10);
+ f.resetCalls();assert.equal((await retryStep(f,'retire',proof)).status,409);assert.equal(f.cancellations(),1);
+});
+for(const tokenStatus of ['confirmed','initiated','paused'])test(`recovery blocks ${tokenStatus} mandates without cancellation`,async()=>{
+ const {prepared}=await retryProof();const f=await fixture('live');f.retry(tokenStatus);const r=await retryStep(f,'verify',prepared);assert.equal(r.status,409);assert.equal(f.cancellations(),0);
+});
+for(const paymentStatus of ['authorized','captured','created'])test(`recovery blocks ${paymentStatus} payments before retirement`,async()=>{
+ const {proof}=await retryProof();const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',status:'created'});f.retry('rejected',paymentStatus);
+ const r=await retryStep(f,'retire',proof);assert.equal(r.status,409);assert.equal(f.cancellations(),0);assert.ok(f.calls()<=10);
+});
+test('recovery rejects tampered, wrong-mode, expired and unverified proofs',async()=>{
+ const {proof,prepared}=await retryProof();
+ const payload=Buffer.from(proof.split('.')[0],'base64url');const expired=JSON.parse(payload.toString());expired.expires=Date.now()-1;
+ const encoded=Buffer.from(JSON.stringify(expired)).toString('base64url');const signature=createHmac('sha256','secret').update(`repday-checkout-retry:v1:${encoded}`).digest('hex');
+ for(const [mode,value,action,expected] of [['live',proof+'x','retire',400],['test',proof,'retire',403],['live',`${encoded}.${signature}`,'retire',409],['live',prepared,'retire',409]] as const){
+  const f=await fixture(mode);f.retry();const result=await retryStep(f,action,value);assert.equal(result.status,expected);assert.equal(f.cancellations(),0);
+ }
+});
+test('recovery protects paid access and concurrent account updates',async()=>{
+ const {proof}=await retryProof();
+ for(const paid of [true,false]){
+  const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',status:'created',paidUntil:paid?f.end*1000:null});f.retry();if(!paid)f.conflict();
+  const r=await retryStep(f,'retire',proof);assert.equal(r.status,409);assert.equal(f.cancellations(),0);
+ }
 });

@@ -85,6 +85,7 @@ export async function refreshSubscription(uid:string, id:string, eventId?:string
     const paidUntil=testAccessExpiresAt===null?invoicePaidUntil:Math.min(invoicePaidUntil,testAccessExpiresAt);
     changes={subscriptionId:id,status:subscription.status,paidUntil:paidUntil||null,testAccessExpiresAt,cancellationScheduled:['cancelled','completed','expired'].includes(subscription.status)?false:!!previous?.cancellationScheduled,mode:billingMode()};
   }
+  if(previous?.retryingSubscriptionId===id&&['cancelled','active','authenticated','completed','expired'].includes(subscription.status)){changes.creatingUntil=0;changes.retryingSubscriptionId=null;}
   const changed=Object.entries(changes).some(([key,value])=>previous?.[key]!==value);
   const value=changed?{...previous,...changes,updatedAt:Date.now()}:previous;
   if(changed||eventWrite.length){
@@ -126,7 +127,7 @@ export async function subscribe(uid:string) {
     // Account and ownership mapping commit together. A changed lease/account
     // rejects the entire commit, so an overlapping action cannot be overwritten.
     await commitWrites([
-      conditionalDocumentWrite(path,{...account,subscriptionId:id,status:'created',paidUntil:null,testAccessExpiresAt:null,cancellationScheduled:false,creatingUntil:0,lease,mode:billingMode(),planId:process.env.RAZORPAY_PLAN_ID,amountPaise:billingAmountPaise(),testAccessDurationSeconds:null,updatedAt:Date.now()},leaseVersion),
+      conditionalDocumentWrite(path,{...account,subscriptionId:id,status:'created',paidUntil:null,testAccessExpiresAt:null,cancellationScheduled:false,creatingUntil:0,retryingSubscriptionId:null,lease,mode:billingMode(),planId:process.env.RAZORPAY_PLAN_ID,amountPaise:billingAmountPaise(),testAccessDurationSeconds:null,updatedAt:Date.now()},leaseVersion),
       documentWrite(`billingSubscriptions/${id}`,{uid,createdAt:Date.now()})
     ]);
     await invalidateBillingAccount(uid);
