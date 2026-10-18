@@ -26,3 +26,50 @@ for(const mode of ['test','live'])test(`${mode} checkout dismissal picks up paym
  }});
  assert.equal((await exports.startCheckout()).premium,true);assert.deepEqual(calls,['/api/billing/subscribe','/api/billing/refresh']);
 });
+
+function retryFixture(){
+ const calls:string[]=[],notifications:string[]=[];
+ const exports:any={};let checkout:any,closed=0;
+ class Checkout{
+  events:Record<string,()=>void>={};
+  constructor(public options:any){checkout=this;}
+  on(event:string,callback:()=>void){this.events[event]=callback;}
+  close(){closed++;this.options.modal.ondismiss();}
+  open(){}
+ }
+ vm.runInNewContext(compiled,{exports,require:(name:string)=>name==='react-native'?{Platform:{OS:'web'}}:name==='./firebase/client'?{auth:{currentUser:{getIdToken:async()=>'fixture'}}}:{getApiBaseUrl:()=>''},AbortSignal,JSON,window:{Razorpay:Checkout},fetch:async(path:string)=>{
+  calls.push(path);
+  if(path.endsWith('/subscribe'))return Response.json({subscriptionId:'sub_fixture',keyId:'rzp_live_fixture',mode:'live',amountPaise:100});
+  return Response.json({premium:path.endsWith('/verify'),status:path.endsWith('/verify')?'active':'created',paidUntil:path.endsWith('/verify')?Date.now()+86400000:null});
+ }});
+ const result=exports.startCheckout((message:string)=>notifications.push(message));
+ return {result,calls,notifications,checkout:()=>checkout,closed:()=>closed};
+}
+async function checkoutReady(f:ReturnType<typeof retryFixture>){
+ for(let i=0;i<20&&!f.checkout();i++)await new Promise(resolve=>setImmediate(resolve));
+ assert.ok(f.checkout(),'checkout opened');return f.checkout();
+}
+test('declined UPI attempt stays open and a retry can activate Plus in the same checkout',async()=>{
+ const f=retryFixture();const checkout=await checkoutReady(f);
+ assert.equal(checkout.options.retry.enabled,true);
+ checkout.events['payment.failed']();
+ assert.equal(f.closed(),0);assert.equal(f.notifications.length,1);assert.deepEqual(f.calls,['/api/billing/subscribe']);
+ checkout.events['payment.failed']();
+ await checkout.options.handler({razorpay_payment_id:'pay_success'});
+ const status=await f.result;assert.equal(status.premium,true);assert.equal(f.closed(),0);
+ assert.deepEqual(f.calls,['/api/billing/subscribe','/api/billing/verify']);
+});
+test('closing checkout after failure reconciles once and reports failure instead of cancellation',async()=>{
+ const f=retryFixture();const checkout=await checkoutReady(f);
+ const failure=assert.rejects(f.result,/Payment was declined/);
+ checkout.events['payment.failed']();checkout.options.modal.ondismiss();checkout.options.modal.ondismiss();
+ await failure;assert.deepEqual(f.calls,['/api/billing/subscribe','/api/billing/refresh']);
+});
+test('late failure and dismiss events cannot overwrite successful verification',async()=>{
+ const f=retryFixture();const checkout=await checkoutReady(f);
+ const verification=checkout.options.handler({razorpay_payment_id:'pay_success'});
+ checkout.events['payment.failed']();checkout.options.modal.ondismiss();
+ await verification;assert.equal((await f.result).premium,true);assert.equal(f.notifications.length,0);
+ checkout.events['payment.failed']();checkout.options.modal.ondismiss();
+ assert.deepEqual(f.calls,['/api/billing/subscribe','/api/billing/verify']);
+});

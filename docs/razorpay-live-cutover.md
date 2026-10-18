@@ -10,7 +10,7 @@ The live Razorpay API confirmed the plan is monthly, interval 1, INR, and 100 pa
 
 All 48 mocked billing/deletion checks, typecheck, and the web build passed. These checks are not evidence of a successful real payment.
 
-**Pending:** the merchant must enter the prepared RAZORPAY_LIVE_WEBHOOK_SECRET value in Razorpay's live webhook form and submit it. The form is prepared with the production URL and all 10 subscription events. Real webhook delivery, payment, and live cancellation still require end-to-end verification.
+**Webhook setup completed:** the merchant entered the live signing secret and saved the webhook. The Razorpay live dashboard was checked afterward and shows the production endpoint as **Enabled**, with **10 events**, last updated **18 October 2026 at 07:01:23 IST**. Webhook ID: `TpBsPI2ISMMfqc`. Real event delivery, payment, and live cancellation still require end-to-end verification.
 
 The old INR 1 plan was a test-mode object and cannot be used with live credentials. A separate live plan was created in the merchant dashboard:
 
@@ -21,6 +21,33 @@ The old INR 1 plan was a test-mode object and cannot be used with live credentia
 - Linked subscriptions at creation: 0
 
 Creating this plan does not charge anyone or create a recurring mandate.
+
+## Steps actually performed
+
+1. Inspected the existing implementation and found explicit test-mode guards in both server configuration and browser checkout, sandbox UI copy, and the optional per-account 60-second deadline.
+2. Opened the live merchant dashboard. There were initially no live subscription plans or live API keys. The old INR 1 plan belonged to test mode and was not reused with live keys.
+3. Created the separate INR 1 monthly live verification plan listed above. Read it through the authenticated Razorpay live API and confirmed `period=monthly`, `interval=1`, `item.amount=100`, and `item.currency=INR`.
+4. The merchant generated the live key pair and saved it in `.env.local` as `RAZORPAY_LIVEAPI_KEY_ID` and `RAZORPAY_LIVEAPI_KEY_SECRET`. Those entries were read locally without printing the values.
+5. Implemented live mode, test/live entitlement isolation, mode-specific cache keys, live checkout copy, and per-subscription plan/price recording. Retained sandbox support for deliberate test environments.
+6. Preserved the previous local test configuration under `RAZORPAY_TEST_*` names. Set the canonical local server variables to live mode, the live key pair, plan `plan_TpBSwrZKmhJx9M`, and 100 paise. Prepared a separate live webhook signing secret as `RAZORPAY_LIVE_WEBHOOK_SECRET`; copied that same value into the canonical `RAZORPAY_WEBHOOK_SECRET` variable.
+7. Prepared a private temporary dotenv file containing only the seven billing settings in the production table. Uploaded it with `eas env:push production --path <private-file> --force`. Non-public variables use EAS sensitive visibility. Existing Firebase, AI, Redis, and push configuration was retained. Removed the temporary credential import and backup files after upload.
+8. Ran the 48 mocked regression checks, TypeScript validation, and web export. Checked all 35 generated client artifacts for the live billing secret values; none were present. No real customer account was deleted and no real payment was submitted by these tests.
+9. Deployed with `npm run deploy:web:prod`, which exports using the EAS production environment and promotes the server/client deployment to the production domain.
+10. Sent two non-mutating production webhook probes: an invalid signature returned HTTP 401; a valid HMAC over a non-subscription healthcheck returned HTTP 200 with `received: true`. This verifies the production secret/configuration but does not simulate delivery of a real subscription event.
+11. Reloaded production and opened the Plus popup. The existing manually granted account retained Complimentary access and its unlocked features.
+12. Prepared the live webhook form with the production URL and all 10 subscription events. The merchant personally entered the signing secret and submitted it. Confirmed the resulting dashboard row is Enabled with 10 events.
+13. Committed and pushed the implementation and initial cutover guide as `2b415d8` on `codex/backend-isolation`. This guide is updated afterward as verification progresses.
+
+### Validation commands
+
+```sh
+npm run typecheck
+node --import tsx --test tests/billing.test.ts tests/billing-auth.test.ts tests/billing-budget.test.ts tests/billing-cache.test.ts tests/billing-lifecycle.test.ts tests/billing-checkout-recovery.test.ts tests/delete-account.test.ts
+npm run export:web
+npm run deploy:web:prod
+```
+
+The tests use mocked providers/storage and clocks. Passing them does not confirm merchant payment-method availability, a customer's bank authorization, actual webhook delivery, or the real cancellation flow.
 
 ## Code changes
 
@@ -53,7 +80,7 @@ Do not commit credentials or expose secrets with EXPO_PUBLIC_. Keep Firebase Adm
 
 Endpoint: `https://repday.expo.app/api/billing/webhook`.
 
-Use the live-mode dashboard and enable subscription lifecycle events: authenticated, activated, charged, pending, halted, cancelled, completed, paused, resumed, and updated where supported. The endpoint reconciles canonical provider data rather than trusting payload entitlement fields. HMAC verification uses the configured webhook secret. Payment-only events are acknowledged but do not change access.
+The saved live-mode webhook is Enabled and subscribes to all 10 available subscription lifecycle events: authenticated, activated, charged, pending, halted, cancelled, completed, paused, resumed, and updated. The endpoint reconciles canonical provider data rather than trusting payload entitlement fields. HMAC verification uses the configured webhook secret. Payment-only events are acknowledged but do not change access.
 
 The merchant must create/download the live API credential if none exists. Browser security requires credential creation to be performed by the user.
 
@@ -78,3 +105,7 @@ Create a separate INR 75 monthly plan in live mode; set its ID and 7500 paise in
 ## Rollback
 
 Use the last known deployment and a consistent test-mode environment if rollback is needed. Do not mix test plan IDs with live keys. Billing status is mode-aware; complimentary grants remain available across modes. No existing live subscription should be deleted or modified merely to roll back the app.
+
+## Follow-up: declined UPI attempt
+
+A live UPI decline exposed an app-side checkout lifecycle issue: Repday forcibly closed checkout on `payment.failed`, interrupting Razorpay's native retry flow. The client now keeps checkout open for retries, reports the failure through a toast, and guards late/double callbacks. See [the UPI retry incident](upi-checkout-retry-incident.md) for the evidence, limits of diagnosis, regression checks, and pending real-device verification.
