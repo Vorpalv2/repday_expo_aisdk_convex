@@ -90,7 +90,7 @@ A possible application recovery flow would retain the audit history, verify the 
 
 Source: https://raw.githubusercontent.com/razorpay/markdown-docs/master/api/payments/recurring-payments/upi/tokens.md (Delete Tokens and Cancel Token sections).
 
-## Implemented recovery: explicit Retry payment (18 October 2026)
+## Initial recovery implementation: explicit Retry payment (18 October 2026)
 
 Close the failed Razorpay checkout and open the Plus popup. **Retry payment** is shown for an outstanding created subscription or after a failure in this popup. Normal checkout retries remain available. A failure callback never automatically cancels a subscription.
 
@@ -116,3 +116,17 @@ Preparation reads one billing account document; token verification reads only Ra
 Mocked route/client tests cover the ordered recovery, cold request budgets, confirmed/pending token rejection, pending/authorized/captured payment rejection, paid access, conditional-write conflict, proof tampering, mode mismatch, expiration and incomplete proof replay. TypeScript is checked. These tests do not charge money or cancel live subscriptions.
 
 A real phone test remains necessary: intentionally decline one initial authorization, close checkout, select Retry payment, then approve the newly opened checkout. Verify the new subscription ID, activation without reload, and no duplicate charge/active mandate. A new subscription does not guarantee that a bank/NPCI-side duplicate mandate record clears immediately; if the error persists, the provider needs to trace the recorded payment/token references.
+
+
+## Follow-up: automatic checks on Continue checkout
+
+The separate Retry payment button has now been folded into **Continue checkout**. No page reload, manual Refresh access, or separate cleanup action is required. The older explicit-button description above records the first implementation.
+
+The subscribe response now identifies an existing checkout with `resuming: true` using the provider/account reads it already performs. The client runs the same staged authorization checks before reopening that checkout. A brand new checkout opens directly without this extra recovery sequence.
+
+- No invoice or no payment attempts: reuse the existing unpaid checkout, with no cancellation.
+- Confirmed rejected/cancelled UPI authorization and failed payments only: retire the rejected subscription, create a new subscription, then open its checkout.
+- Paid or changed authorization: automatically reconcile billing; if Plus is active, update access without opening checkout.
+- Pending, confirmed-but-unpaid, or ambiguous authorization: do not cancel or create a replacement; automatically reconcile access and display a wait-and-continue message if payment is not complete.
+
+All safeguards, expiring proofs, conditional writes and per-request budgets remain in place. The automatic check requires additional account/provider reads when resuming checkout, and the final subscribe request revalidates the account before opening it. These checks only run on the user's checkout action, never in an idle loop or directly from `payment.failed`. Closing checkout still reconciles payment as before. The app does not delete failed transactions; Razorpay retains payment history, and cancellation applies only to the verified rejected unpaid subscription. The live phone retry remains a required verification of bank-side behavior.

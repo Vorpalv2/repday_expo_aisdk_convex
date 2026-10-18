@@ -96,7 +96,7 @@ export async function refreshSubscription(uid:string, id:string, eventId?:string
   await invalidateBillingAccount(uid);
   return value;
 }
-export async function subscribe(uid:string) {
+export async function subscriptionCheckout(uid:string) {
   requireConfig();
   const path=`billingAccounts/${uid}`;
   const snapshot=await readVersionedDocument(path);
@@ -108,7 +108,7 @@ export async function subscribe(uid:string) {
   if(account?.subscriptionId){
     const checkout=await razorpay<Subscription>(`subscriptions/${account.subscriptionId}`);
     if(checkout.notes?.firebase_uid!==uid)throw new ServerError(403,'This subscription belongs to another account.');
-    if(['created','authenticated'].includes(checkout.status)&&checkout.plan_id===process.env.RAZORPAY_PLAN_ID)return checkout.id;
+    if(['created','authenticated'].includes(checkout.status)&&checkout.plan_id===process.env.RAZORPAY_PLAN_ID)return {subscriptionId:checkout.id,resuming:true};
     const terminal=['cancelled','completed','expired'].includes(checkout.status);
     if(!terminal&&!(checkout.status==='created'&&checkout.plan_id!==process.env.RAZORPAY_PLAN_ID))throw new ServerError(409,'You already have a subscription. Refresh or manage it in Profile.','SUBSCRIPTION_REFRESH_REQUIRED');
   }
@@ -131,7 +131,7 @@ export async function subscribe(uid:string) {
       documentWrite(`billingSubscriptions/${id}`,{uid,createdAt:Date.now()})
     ]);
     await invalidateBillingAccount(uid);
-    return id;
+    return {subscriptionId:id,resuming:false};
   }catch(error){
     if(created)await razorpay(`subscriptions/${created.id}/cancel`,{cancel_at_cycle_end:false}).catch(()=>{});
     await commitWrites([conditionalDocumentWrite(path,{creatingUntil:0},leaseVersion,true)]).catch(()=>{});
@@ -139,6 +139,7 @@ export async function subscribe(uid:string) {
     throw error;
   }
 }
+export async function subscribe(uid:string){return (await subscriptionCheckout(uid)).subscriptionId;}
 export async function cancelSubscription(uid:string, deleting=false) {
   if(!adminCredential()){if(billingEnforced())requireConfig();return;}
   const path=`billingAccounts/${uid}`;

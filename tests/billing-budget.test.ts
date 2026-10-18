@@ -47,8 +47,8 @@ async function fixture(mode:'test'|'live'='test'){
    if(url.pathname.includes('/plans/'))return Response.json({period:'monthly',interval:1,item:{amount:7500,currency:'INR'}});
    if(url.pathname==='/v1/subscriptions'&&options.method==='POST')return Response.json({id:'sub_fixture',plan_id:'plan_fixture',status:'created',notes:{firebase_uid:'owner'}});
    if(retry&&url.pathname.includes('/tokens/'))return Response.json({id:'token_fixture',method:'upi',recurring:false,recurring_details:{status:retry.tokenStatus}});
-   if(retry&&url.pathname.endsWith('/payments'))return Response.json({items:[{id:'pay_fixture',order_id:'order_fixture',customer_id:'cust_fixture',token_id:'token_fixture',status:retry.paymentStatus,method:'upi'}]});
-   if(retry&&url.pathname.endsWith('/invoices'))return Response.json({items:[{subscription_id:'sub_fixture',status:'issued',amount_paid:0,amount_due:7500,order_id:'order_fixture'}]});
+   if(retry&&url.pathname.endsWith('/payments'))return Response.json({items:retry.noAttempt==='payments'?[]:[{id:'pay_fixture',order_id:'order_fixture',customer_id:'cust_fixture',token_id:'token_fixture',status:retry.paymentStatus,method:'upi'}]});
+   if(retry&&url.pathname.endsWith('/invoices'))return Response.json({items:retry.noAttempt==='invoice'?[]:[{subscription_id:'sub_fixture',status:'issued',amount_paid:0,amount_due:7500,order_id:'order_fixture'}]});
    if(url.pathname.endsWith('/cancel')){cancellations++;if(!body.cancel_at_cycle_end)providerStatus='cancelled';}
    if(url.pathname.endsWith('/invoices'))return Response.json({items:paid?[{subscription_id:'sub_fixture',status:'paid',currency:'INR',amount_paid:7500,amount_due:0,billing_end:end}]:[]});
    return Response.json({id:'sub_fixture',plan_id:'plan_fixture',status:providerStatus,paid_count:paid?1:0,...(retry?{auth_attempts:0,customer_id:'cust_fixture',current_start:null,current_end:null}:{}),notes:{firebase_uid:'owner'}});
@@ -76,7 +76,7 @@ async function fixture(mode:'test'|'live'='test'){
  const admin=load('lib/server/firebaseAdmin');
  const seed=(value:any)=>{records.set('billingAccounts/owner',admin.encodeFields(value));versions.set('billingAccounts/owner','2026-10-17T00:00:00.000000Z');records.set('billingSubscriptions/sub_fixture',admin.encodeFields({uid:'owner'}));versions.set('billingSubscriptions/sub_fixture','2026-10-17T00:00:00.000000Z');};
  const request=(body?:any)=>new Request('https://app.fixture/api/billing',{method:body?'POST':'GET',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
- return {retry:(tokenStatus='rejected',paymentStatus='failed')=>{retry={tokenStatus,paymentStatus};},cancellations:()=>cancellations,resetCalls:()=>{calls=0;},load,request,calls:()=>calls,seed,records,admin,end,env,setPaid:()=>{paid=true;providerStatus='active';},setTerminal:()=>{providerStatus='cancelled';},conflict:()=>{beforeCommit=()=>versions.set('billingAccounts/owner','concurrent-change');}};
+ return {retry:(tokenStatus='rejected',paymentStatus='failed',noAttempt?:'invoice'|'payments')=>{retry={tokenStatus,paymentStatus,noAttempt};},cancellations:()=>cancellations,resetCalls:()=>{calls=0;},load,request,calls:()=>calls,seed,records,admin,end,env,setPaid:()=>{paid=true;providerStatus='active';},setTerminal:()=>{providerStatus='cancelled';},conflict:()=>{beforeCommit=()=>versions.set('billingAccounts/owner','concurrent-change');}};
 }
 test('cold new-account checkout stays within the hosted 10-call budget',async()=>{
  const f=await fixture();const r=await f.load('app/api/billing/subscribe+api').POST(f.request({}));assert.equal(r.status,200,JSON.stringify(await r.clone().json()));assert.equal((await r.json()).subscriptionId,'sub_fixture');assert.equal(f.calls(),9);
@@ -183,4 +183,13 @@ test('recovery protects paid access and concurrent account updates',async()=>{
   const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',status:'created',paidUntil:paid?f.end*1000:null});f.retry();if(!paid)f.conflict();
   const r=await retryStep(f,'retire',proof);assert.equal(r.status,409);assert.equal(f.cancellations(),0);
  }
+});
+
+for(const noAttempt of ['invoice','payments'] as const)test(`continue reuses an unattempted checkout with no ${noAttempt} without cancellation`,async()=>{
+ const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',status:'created'});f.retry('rejected','failed',noAttempt);
+ const result=await retryStep(f,'prepare');assert.equal(result.status,200);assert.equal(result.stage,'ready');assert.equal(f.cancellations(),0);assert.ok(f.calls()<=10);
+});
+test('subscribe marks existing checkout for automatic authorization checks without additional calls',async()=>{
+ const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',status:'created'});
+ const result=await f.load('app/api/billing/subscribe+api').POST(f.request({}));assert.equal(result.status,200);assert.equal((await result.json()).resuming,true);assert.equal(f.calls(),5);
 });

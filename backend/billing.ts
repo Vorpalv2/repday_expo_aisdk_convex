@@ -20,8 +20,11 @@ async function loadCheckout(){
  return scriptPromise;
 }
 export async function startCheckout(onPaymentFailure?:(message:string)=>void):Promise<BillingStatus|null>{
+ return openCheckout(onPaymentFailure);
+}
+async function openCheckout(onPaymentFailure?: (message:string)=>void,authorizationChecked=false):Promise<BillingStatus|null>{
  if(Platform.OS!=='web')throw new Error('Open Repday in your browser to subscribe.');
- let data:{subscriptionId:string;keyId:string;email:string;mode:string;amountPaise:number};
+ let data:{subscriptionId:string;keyId:string;email:string;mode:string;amountPaise:number;resuming?:boolean};
  try{data=await billingRequest('/api/billing/subscribe',{});}catch(error){
   if(error instanceof BillingApiError&&error.code==='SUBSCRIPTION_REFRESH_REQUIRED'){
    const status=await billingRequest<BillingStatus>('/api/billing/refresh',{});
@@ -30,6 +33,7 @@ export async function startCheckout(onPaymentFailure?:(message:string)=>void):Pr
   }
   throw error;
  }
+ if(data.resuming&&!authorizationChecked)return retryCheckout(onPaymentFailure);
  if(!['test','live'].includes(data.mode)||!data.keyId.startsWith(`rzp_${data.mode}_`))throw new Error('Checkout configuration is invalid. Please retry.');
  await loadCheckout();
  return new Promise((resolve,reject)=>{
@@ -77,7 +81,7 @@ export async function startCheckout(onPaymentFailure?:(message:string)=>void):Pr
  });
 }
 
-// Explicit recovery only: never retire a subscription from payment.failed itself.
+// Run on Continue checkout as well as explicit retry; never from payment.failed itself.
 export async function retryCheckout(onPaymentFailure?:(message:string)=>void):Promise<BillingStatus|null>{
  if(Platform.OS!=='web')throw new Error('Open Repday in your browser to subscribe.');
  type Step={stage:'verify'|'retire'|'ready';proof?:string};
@@ -88,11 +92,12 @@ export async function retryCheckout(onPaymentFailure?:(message:string)=>void):Pr
    step=await billingRequest<Step>('/api/billing/retry-checkout',{action:step.stage,proof:step.proof});
   }
  }catch(error){
-  if(error instanceof BillingApiError&&error.code==='SUBSCRIPTION_REFRESH_REQUIRED'){
+  if(error instanceof BillingApiError&&['SUBSCRIPTION_REFRESH_REQUIRED','CHECKOUT_RETRY_BLOCKED'].includes(error.code)){
    const status=await billingRequest<BillingStatus>('/api/billing/refresh',{});
    if(status.premium)return status;
+   throw new Error('Payment authorization is pending or could not be safely reset. Please wait a little, then continue checkout again.');
   }
   throw error;
  }
- return startCheckout(onPaymentFailure);
+ return openCheckout(onPaymentFailure,true);
 }

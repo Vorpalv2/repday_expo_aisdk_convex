@@ -87,6 +87,30 @@ test('explicit recovery finishes verification and retirement before opening fres
 });
 test('blocked recovery never starts another subscription checkout',async()=>{
  const calls:string[]=[],exports:any={};
- vm.runInNewContext(compiled,{exports,require:(name:string)=>name==='react-native'?{Platform:{OS:'web'}}:name==='./firebase/client'?{auth:{currentUser:{getIdToken:async()=>'fixture'}}}:{getApiBaseUrl:()=>''},AbortSignal,JSON,fetch:async(path:string)=>{calls.push(path);return Response.json({error:'Mandate is pending.',code:'CHECKOUT_RETRY_BLOCKED'},{status:409});}});
- await assert.rejects(exports.retryCheckout(),/Mandate is pending/);assert.deepEqual(calls,['/api/billing/retry-checkout']);
+ vm.runInNewContext(compiled,{exports,require:(name:string)=>name==='react-native'?{Platform:{OS:'web'}}:name==='./firebase/client'?{auth:{currentUser:{getIdToken:async()=>'fixture'}}}:{getApiBaseUrl:()=>''},AbortSignal,JSON,fetch:async(path:string)=>{calls.push(path);return path.endsWith('/refresh')?Response.json({premium:false,status:'created'}):Response.json({error:'Mandate is pending.',code:'CHECKOUT_RETRY_BLOCKED'},{status:409});}});
+ await assert.rejects(exports.retryCheckout(),/Payment authorization is pending/);assert.deepEqual(calls,['/api/billing/retry-checkout','/api/billing/refresh']);
+});
+
+for(const rejected of [true,false])test(`Continue checkout automatically ${rejected?'replaces rejected authorization':'reuses unattempted subscription'} without a reload`,async()=>{
+ const calls:string[]=[],exports:any={};let subscriptions=0,checkout:any;
+ class Checkout{constructor(options:any){checkout=options;}on(){}open(){calls.push('opened');}}
+ vm.runInNewContext(compiled,{exports,require:(name:string)=>name==='react-native'?{Platform:{OS:'web'}}:name==='./firebase/client'?{auth:{currentUser:{getIdToken:async()=>'fixture'}}}:{getApiBaseUrl:()=>''},AbortSignal,JSON,window:{Razorpay:Checkout},fetch:async(path:string,options:any)=>{
+  const action=JSON.parse(options.body).action;calls.push(action||path);
+  if(action)return Response.json(action==='prepare'?(rejected?{stage:'verify',proof:'first'}:{stage:'ready'}):action==='verify'?{stage:'retire',proof:'second'}:{stage:'ready'});
+  subscriptions++;return Response.json({subscriptionId:rejected&&subscriptions===2?'sub_new':'sub_existing',resuming:subscriptions===1||!rejected,keyId:'rzp_live_fixture',mode:'live',amountPaise:100});
+ }});
+ void exports.startCheckout();
+ for(let i=0;i<20&&!checkout;i++)await new Promise(resolve=>setImmediate(resolve));
+ assert.ok(checkout);assert.equal(checkout.subscription_id,rejected?'sub_new':'sub_existing');
+ assert.deepEqual(calls,rejected?['/api/billing/subscribe','prepare','verify','retire','/api/billing/subscribe','opened']:['/api/billing/subscribe','prepare','/api/billing/subscribe','opened']);
+});
+test('Continue checkout automatically recovers paid access instead of replacing pending authorization',async()=>{
+ const calls:string[]=[],exports:any={};let checkouts=0;
+ vm.runInNewContext(compiled,{exports,require:(name:string)=>name==='react-native'?{Platform:{OS:'web'}}:name==='./firebase/client'?{auth:{currentUser:{getIdToken:async()=>'fixture'}}}:{getApiBaseUrl:()=>''},AbortSignal,JSON,window:{Razorpay:class{constructor(){checkouts++;}}},fetch:async(path:string)=>{
+  calls.push(path);
+  if(path.endsWith('/subscribe'))return Response.json({subscriptionId:'sub_existing',resuming:true,keyId:'rzp_live_fixture',mode:'live',amountPaise:100});
+  if(path.endsWith('/refresh'))return Response.json({premium:true,status:'active'});
+  return Response.json({error:'Authorization changed',code:'SUBSCRIPTION_REFRESH_REQUIRED'},{status:409});
+ }});
+ assert.equal((await exports.startCheckout()).premium,true);assert.equal(checkouts,0);assert.deepEqual(calls,['/api/billing/subscribe','/api/billing/retry-checkout','/api/billing/refresh']);
 });
