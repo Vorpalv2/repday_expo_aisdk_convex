@@ -5,7 +5,7 @@ import { invalidateBillingAccount } from './billingCache';
 type Subscription={id:string;status:string;paid_count?:number;auth_attempts?:number;customer_id?:string;current_start?:number|null;current_end?:number|null;notes?:{firebase_uid?:string}};
 type Payment={id:string;order_id:string;customer_id?:string;token_id?:string;status:string;method:string};
 type Proof={uid:string;mode:string;subscriptionId:string;orderId:string;customerId:string;tokens:string[];verified:number;version:string;expires:number};
-const blocked=()=>new ServerError(409,'This authorization is paid, pending, or not confirmed rejected. Please wait a little, then continue checkout again.','CHECKOUT_RETRY_BLOCKED');
+const blocked=()=>new ServerError(409,'This checkout has a pending payment, active mandate, or an authorization that cannot be safely replaced. Please wait a little, then continue checkout again.','CHECKOUT_RETRY_BLOCKED');
 const refreshRequired=()=>new ServerError(409,'Payment authorization changed. Please wait a little, then continue checkout again.','SUBSCRIPTION_REFRESH_REQUIRED');
 function unpaidCreated(sub:Subscription){return sub.status==='created'&&sub.paid_count===0&&sub.auth_attempts===0&&!sub.current_start&&!sub.current_end;}
 function owned(sub:Subscription,uid:string,id:string){if(sub.id!==id||sub.notes?.firebase_uid!==uid)throw new ServerError(403,'Subscription verification failed.');}
@@ -60,7 +60,9 @@ export async function verifyCheckoutRetry(uid:string,value:unknown){
  const proof=await unseal(uid,value);const end=Math.min(proof.verified+2,proof.tokens.length);
  for(let index=proof.verified;index<end;index++){
   const token=await razorpay<any>(`customers/${proof.customerId}/tokens/${proof.tokens[index]}`);
-  if(token.id!==proof.tokens[index]||token.method!=='upi'||token.recurring!==false||!['rejected','cancelled'].includes(token.recurring_details?.status))throw blocked();
+  // An inactive initiated token can remain after a terminal failed payment.
+  // Cancel the unpaid subscription checkout, not the NPCI/token record.
+  if(token.id!==proof.tokens[index]||token.method!=='upi'||token.recurring!==false||!['rejected','cancelled','initiated'].includes(token.recurring_details?.status))throw blocked();
  }
  proof.verified=end;
  return {stage:end===proof.tokens.length?'retire' as const:'verify' as const,proof:await seal(proof)};
@@ -81,9 +83,10 @@ export async function retireCheckoutRetry(uid:string,value:unknown){
   const payments=await razorpay<{items:Payment[]}>(`orders/${proof.orderId}/payments`);
   const tokens=failedPayments(payments.items,proof.orderId,proof.customerId);
   if(JSON.stringify(tokens)!==JSON.stringify(proof.tokens))throw blocked();
-  // Only explicitly rejected/cancelled initial authorizations reach this point.
-  // No token records or payment history are deleted, and confirmed mandates are
-  // never sent to a cancellation endpoint by this recovery flow.
+  // Every payment on this initial checkout is failed, and every checked token
+  // is inactive and rejected/cancelled/initiated. Cancelling the subscription
+  // abandons this checkout and prevents reuse. It does not claim that a bank
+  // token was deleted or revoked; confirmed tokens remain ineligible.
   const cancelled=await razorpay<Subscription>(`subscriptions/${proof.subscriptionId}/cancel`,{cancel_at_cycle_end:false});
   owned(cancelled,uid,proof.subscriptionId);
   if(cancelled.status!=='cancelled'||cancelled.paid_count!==0||cancelled.auth_attempts!==0||cancelled.current_start||cancelled.current_end)throw refreshRequired();

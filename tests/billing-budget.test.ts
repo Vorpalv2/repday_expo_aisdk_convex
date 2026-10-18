@@ -46,8 +46,8 @@ async function fixture(mode:'test'|'live'='test'){
   if(url.hostname==='api.razorpay.com'){
    if(url.pathname.includes('/plans/'))return Response.json({period:'monthly',interval:1,item:{amount:7500,currency:'INR'}});
    if(url.pathname==='/v1/subscriptions'&&options.method==='POST')return Response.json({id:'sub_fixture',plan_id:'plan_fixture',status:'created',notes:{firebase_uid:'owner'}});
-   if(retry&&url.pathname.includes('/tokens/'))return Response.json({id:'token_fixture',method:'upi',recurring:false,recurring_details:{status:retry.tokenStatus}});
-   if(retry&&url.pathname.endsWith('/payments'))return Response.json({items:retry.noAttempt==='payments'?[]:[{id:'pay_fixture',order_id:'order_fixture',customer_id:'cust_fixture',token_id:'token_fixture',status:retry.paymentStatus,method:'upi'}]});
+   if(retry&&url.pathname.includes('/tokens/')){const tokenId=url.pathname.split('/').at(-1)!;return Response.json({id:tokenId,method:'upi',recurring:retry.tokens?.find((token:any)=>token.id===tokenId)?.recurring??false,recurring_details:{status:retry.tokens?.find((token:any)=>token.id===tokenId)?.status||retry.tokenStatus}});}
+   if(retry&&url.pathname.endsWith('/payments'))return Response.json({items:retry.noAttempt==='payments'?[]:(retry.tokens||[{id:'token_fixture'}]).map((token:any,index:number)=>({id:`pay_fixture${index}`,order_id:'order_fixture',customer_id:'cust_fixture',token_id:token.id,status:retry.paymentStatus,method:'upi'}))});
    if(retry&&url.pathname.endsWith('/invoices'))return Response.json({items:retry.noAttempt==='invoice'?[]:[{subscription_id:'sub_fixture',status:'issued',amount_paid:0,amount_due:7500,order_id:'order_fixture'}]});
    if(url.pathname.endsWith('/cancel')){cancellations++;if(!body.cancel_at_cycle_end)providerStatus='cancelled';}
    if(url.pathname.endsWith('/invoices'))return Response.json({items:paid?[{subscription_id:'sub_fixture',status:'paid',currency:'INR',amount_paid:7500,amount_due:0,billing_end:end}]:[]});
@@ -76,7 +76,7 @@ async function fixture(mode:'test'|'live'='test'){
  const admin=load('lib/server/firebaseAdmin');
  const seed=(value:any)=>{records.set('billingAccounts/owner',admin.encodeFields(value));versions.set('billingAccounts/owner','2026-10-17T00:00:00.000000Z');records.set('billingSubscriptions/sub_fixture',admin.encodeFields({uid:'owner'}));versions.set('billingSubscriptions/sub_fixture','2026-10-17T00:00:00.000000Z');};
  const request=(body?:any)=>new Request('https://app.fixture/api/billing',{method:body?'POST':'GET',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
- return {retry:(tokenStatus='rejected',paymentStatus='failed',noAttempt?:'invoice'|'payments')=>{retry={tokenStatus,paymentStatus,noAttempt};},cancellations:()=>cancellations,resetCalls:()=>{calls=0;},load,request,calls:()=>calls,seed,records,admin,end,env,setPaid:()=>{paid=true;providerStatus='active';},setTerminal:()=>{providerStatus='cancelled';},conflict:()=>{beforeCommit=()=>versions.set('billingAccounts/owner','concurrent-change');}};
+ return {retry:(tokenStatus='rejected',paymentStatus='failed',noAttempt?:'invoice'|'payments')=>{retry={tokenStatus,paymentStatus,noAttempt};},mixedRetry:(middle='initiated',recurring=false)=>{retry={paymentStatus:'failed',tokens:[{id:'token_first',status:'rejected'},{id:'token_middle',status:middle,recurring},{id:'token_last',status:'rejected'}]};},cancellations:()=>cancellations,resetCalls:()=>{calls=0;},load,request,calls:()=>calls,seed,records,admin,end,env,setPaid:()=>{paid=true;providerStatus='active';},setTerminal:()=>{providerStatus='cancelled';},conflict:()=>{beforeCommit=()=>versions.set('billingAccounts/owner','concurrent-change');}};
 }
 test('cold new-account checkout stays within the hosted 10-call budget',async()=>{
  const f=await fixture();const r=await f.load('app/api/billing/subscribe+api').POST(f.request({}));assert.equal(r.status,200,JSON.stringify(await r.clone().json()));assert.equal((await r.json()).subscriptionId,'sub_fixture');assert.equal(f.calls(),9);
@@ -162,7 +162,7 @@ test('rejected UPI recovery retires only the unpaid checkout within ten cold cal
  const result=await retryStep(f,'retire',proof);assert.equal(result.status,200,JSON.stringify(result));assert.equal(result.stage,'ready');assert.equal(f.cancellations(),1);assert.equal(f.calls(),10);
  f.resetCalls();assert.equal((await retryStep(f,'retire',proof)).status,409);assert.equal(f.cancellations(),1);
 });
-for(const tokenStatus of ['confirmed','initiated','paused'])test(`recovery blocks ${tokenStatus} mandates without cancellation`,async()=>{
+for(const tokenStatus of ['confirmed','paused'])test(`recovery blocks ${tokenStatus} mandates without cancellation`,async()=>{
  const {prepared}=await retryProof();const f=await fixture('live');f.retry(tokenStatus);const r=await retryStep(f,'verify',prepared);assert.equal(r.status,409);assert.equal(f.cancellations(),0);
 });
 for(const paymentStatus of ['authorized','captured','created'])test(`recovery blocks ${paymentStatus} payments before retirement`,async()=>{
@@ -192,4 +192,22 @@ for(const noAttempt of ['invoice','payments'] as const)test(`continue reuses an 
 test('subscribe marks existing checkout for automatic authorization checks without additional calls',async()=>{
  const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',status:'created'});
  const result=await f.load('app/api/billing/subscribe+api').POST(f.request({}));assert.equal(result.status,200);assert.equal((await result.json()).resuming,true);assert.equal(f.calls(),5);
+});
+
+test('three failed payments with rejected/initiated/rejected inactive tokens can abandon their initial checkout',async()=>{
+ const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',status:'created'});f.mixedRetry();
+ const prepared=await retryStep(f,'prepare');assert.equal(prepared.status,200);f.resetCalls();
+ const first=await retryStep(f,'verify',prepared.proof);assert.equal(first.status,200);assert.equal(first.stage,'verify');f.resetCalls();
+ const second=await retryStep(f,'verify',first.proof);assert.equal(second.status,200);assert.equal(second.stage,'retire');
+ // Run retirement cold, with no OAuth token carried over from preparation.
+ const cold=await fixture('live');cold.seed({mode:'live',subscriptionId:'sub_fixture',status:'created'});cold.mixedRetry();
+ const retired=await retryStep(cold,'retire',second.proof);assert.equal(retired.status,200,JSON.stringify(retired));assert.equal(retired.stage,'ready');assert.equal(cold.cancellations(),1);assert.equal(cold.calls(),10);
+});
+for(const [middle,recurring] of [['confirmed',false],['initiated',true]] as const)test(`mixed failed attempts protect ${middle} recurring=${recurring} authorization`,async()=>{
+ const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',status:'created'});f.mixedRetry(middle,recurring);
+ const prepared=await retryStep(f,'prepare');f.resetCalls();const first=await retryStep(f,'verify',prepared.proof);f.resetCalls();const result=first.stage==='verify'?await retryStep(f,'verify',first.proof):first;assert.equal(result.status,409);assert.equal(f.cancellations(),0);
+});
+for(const payment of ['created','authorized','captured'])test(`pending or successful ${payment} payment never starts checkout retirement`,async()=>{
+ const f=await fixture('live');f.seed({mode:'live',subscriptionId:'sub_fixture',status:'created'});f.retry('initiated',payment);
+ const prepared=await retryStep(f,'prepare');assert.equal(prepared.status,409);assert.equal(f.cancellations(),0);
 });

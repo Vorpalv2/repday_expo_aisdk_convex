@@ -73,7 +73,7 @@ async function openCheckout(onPaymentFailure?: (message:string)=>void,authorizat
   if(verifying||settled)return;
   // A failed attempt is not the end of Checkout. Let Razorpay manage its next
   // UPI intent/payment attempt instead of closing and reopening mid-flow.
-  const message='Payment was declined. Retry in Razorpay checkout or choose another payment method.';
+  const message='Payment was declined. Close checkout and select Continue checkout to check and retry safely.';
   lastFailure=new Error(message);
   onPaymentFailure?.(message);
  });

@@ -130,3 +130,32 @@ The subscribe response now identifies an existing checkout with `resuming: true`
 - Pending, confirmed-but-unpaid, or ambiguous authorization: do not cancel or create a replacement; automatically reconcile access and display a wait-and-continue message if payment is not complete.
 
 All safeguards, expiring proofs, conditional writes and per-request budgets remain in place. The automatic check requires additional account/provider reads when resuming checkout, and the final subscribe request revalidates the account before opening it. These checks only run on the user's checkout action, never in an idle loop or directly from `payment.failed`. Closing checkout still reconciles payment as before. The app does not delete failed transactions; Razorpay retains payment history, and cancellation applies only to the verified rejected unpaid subscription. The live phone retry remains a required verification of bank-side behavior.
+
+## Production browser reproduction: mixed authorization states
+
+On 18 October 2026, Continue checkout was exercised in the user's logged-in production side-browser account. The rendered result was: “Payment authorization is pending or could not be safely reset. Please wait a little, then continue checkout again.” No checkout opened and no live cancellation/deletion was performed during this investigation.
+
+Read-only provider inspection found three failed UPI payments on the same initial subscription/order. The first and most recent authorization tokens were rejected, but the middle attempt's token remained `recurring: false` with `recurring_details.status: initiated` and no failure reason. The subscription still reported `created`, `paid_count: 0`, `auth_attempts: 0`, and no billing period; its invoice remained issued and unpaid.
+
+The specific blocker is the all-token verification guard: a failed payment does not establish terminal rejection of its mandate. One unresolved older token blocks automatic retirement even when the newest token is rejected. The generic client error conceals this distinction. The implemented recovery handles fully rejected attempts but does not cancel unresolved NPCI mandate authorizations. At the time of this reproduction, the mixed-state case remained unresolved. The subsequent correction below distinguishes abandoning a failed subscription checkout from cancelling a bank mandate; this supersedes the initial recommendation to wait for every inactive token to become terminal.
+
+## Correction: abandon the failed subscription checkout, not its inactive token
+
+The user explicitly authorized cancelling the affected failed transaction/authorization. A guarded live call to the documented UPI token cancellation endpoint returned HTTP 500 (`SERVER_ERROR`); a subsequent read still showed the token as `initiated`. No token cancellation was confirmed, and no token/payment record was deleted. The initial attempted mutation had been blocked by automatic approval review; it was only retried after the user's explicit authorization.
+
+The corrected application recovery distinguishes a **pending payment** from an **inactive initiated token left behind by a failed payment**. The latter does not require treating the failed payment itself as pending. Recovery may now abandon the *subscription checkout* when all of these conditions hold:
+
+- The owned subscription is initial `created`, with `paid_count: 0`, `auth_attempts: 0`, and no billing period.
+- Its one invoice is issued and unpaid.
+- Every order payment is terminal `failed` UPI, belongs to the subscription customer, and has a token.
+- Every inspected token is `recurring: false` and `rejected`, `cancelled`, or `initiated`. Confirmed, active, paused or unknown token states still block recovery.
+
+After signed proof verification, retirement acquires the existing conditional account lease, rechecks the subscription and complete payment/token-ID list, cancels the unpaid subscription immediately, and requires a cancellation response with zero paid/authentication activity. Only then can the separate subscribe request create a new subscription ID. This remains within the ten-call cold request limit and performs no token cancellation or deletion. An unpaid `created` payment, an authorized/captured payment, an active mandate, a paid subscription, or concurrent account change remains ineligible.
+
+Cancelling the subscription abandons that checkout; it is not a claim that NPCI's token record was erased or revoked. Razorpay documents that cancelled subscriptions cannot restart. Any remaining duplicate mandate error in the new checkout still requires bank/provider tracing; a new ID is not a guarantee that the UPI app's record clears. Regression tests reproduce the observed three-payment rejected/initiated/rejected token mixture and protect actual pending/successful payments and active mandates.
+
+### Production result after the correction
+
+Deployed to production (`repday--2d1mn5sx74.expo.app`) and exercised Continue checkout in the same authenticated side-browser account. The old failed initial subscription became `cancelled`, with `paid_count: 0` and `auth_attempts: 0`. A different live subscription ID was created on the existing INR 1 monthly verification plan, with status `created` and zero payments. Razorpay checkout opened successfully instead of showing the recovery error. Testing stopped before submitting any payment. This verifies the failed-checkout replacement; a phone/UPI payment remains user-operated and the bank-side duplicate-mandate response has not been retested by the agent.
+
+The final code does not use the failing token-cancellation endpoint. No token/payment history was deleted. Automated validation: 73 billing/auth/cache/lifecycle/recovery/deletion tests and TypeScript checks passed. The recovery cancellation path retains the ten-outbound-call cold limit.
