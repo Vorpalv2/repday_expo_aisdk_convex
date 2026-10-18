@@ -43,6 +43,15 @@ export function WorkoutCards(p:Props) {
   const latestIndex=useRef(index);
   latestIndex.current=index;
   useEffect(()=>{if(width)rail.current?.scrollTo({x:latestIndex.current*width,animated:false});},[width,p.moves.length]);
+  // Web trackpad/touch scrolling does not consistently emit native momentum events.
+  // Keep the visible page as the source of truth for every scroll input.
+  const syncScrollIndex=(offset:number)=>{
+    if(width<=0||p.moves.length===0)return;
+    const next=Math.max(0,Math.min(p.moves.length-1,Math.round(offset/width)));
+    if(next===latestIndex.current)return;
+    latestIndex.current=next;
+    p.onIndex(next);
+  };
   const navigate=(next:number)=>{
     const target=Math.max(0,Math.min(p.moves.length-1,next));
     p.onIndex(target);
@@ -57,7 +66,7 @@ export function WorkoutCards(p:Props) {
       <View style={{alignItems:'center',gap:5}}><Text style={labelStyle}>EXERCISE {index+1} OF {p.moves.length}</Text><View style={{flexDirection:'row',gap:5}}>{p.moves.map((m,i)=><View key={m.key} style={{width:i===index?18:5,height:5,borderRadius:3,backgroundColor:i===index?c.blue:c.line}}/>)}</View></View>
       <Pressable accessibilityRole="button" accessibilityLabel="Next exercise" disabled={index===p.moves.length-1} onPress={()=>navigate(index+1)} style={[circle,index===p.moves.length-1&&s.disabled]}><Text style={{fontSize:28,color:c.blue}}>›</Text></Pressable>
     </View>
-    {width>0&&<ScrollView ref={rail} horizontal pagingEnabled showsHorizontalScrollIndicator={false} scrollEventThrottle={32} onMomentumScrollEnd={e=>p.onIndex(Math.round(e.nativeEvent.contentOffset.x/width))} onScrollEndDrag={e=>{if(!e.nativeEvent.velocity?.x)p.onIndex(Math.round(e.nativeEvent.contentOffset.x/width));}} style={{flex:1,minHeight:0}} onLayout={e=>setPageHeight(e.nativeEvent.layout.height)}>
+    {width>0&&<ScrollView ref={rail} horizontal pagingEnabled showsHorizontalScrollIndicator={false} scrollEventThrottle={16} onScroll={e=>syncScrollIndex(e.nativeEvent.contentOffset.x)} onMomentumScrollEnd={e=>syncScrollIndex(e.nativeEvent.contentOffset.x)} onScrollEndDrag={e=>syncScrollIndex(e.nativeEvent.contentOffset.x)} style={{flex:1,minHeight:0}} onLayout={e=>setPageHeight(e.nativeEvent.layout.height)}>
       {p.moves.map((move,mi)=>{
         const si=Math.max(0,Math.min(p.selectedSets[move.key]??Math.max(0,move.sets.findIndex(set=>!set.done)),move.sets.length-1));
         const set=move.sets[si];
