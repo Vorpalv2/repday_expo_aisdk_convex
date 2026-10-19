@@ -27,7 +27,21 @@ const app = isFirebaseConfigured
 
 function createAuth() {
   if (!app) return null;
-  if (Platform.OS === 'web') return getAuth(app);
+  if (Platform.OS === 'web') {
+    try {
+      // Keep getAuth's persistence hierarchy, but defer its popup resolver.
+      // On mobile/Safari the default resolver awaits a cross-origin iframe
+      // before restoring the user. Popup flows supply the resolver explicitly.
+      return initializeAuth(app, { persistence: [
+        FirebaseAuth.indexedDBLocalPersistence,
+        FirebaseAuth.browserLocalPersistence,
+        FirebaseAuth.browserSessionPersistence,
+      ] });
+    } catch (error) {
+      if ((error as { code?: string }).code === 'auth/already-initialized') return getAuth(app);
+      throw error;
+    }
+  }
   try {
     return initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
   } catch {

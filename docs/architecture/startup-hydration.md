@@ -8,9 +8,13 @@ A reported cold browser/PWA launch or returning sign-in could spend long enough 
 
 These findings explain unnecessary delay and why recreating subscriptions could help. They do **not** prove a Firebase Auth SDK defect, a particular production network failure, or that `auth.currentUser` was observed diverging from the auth observer. The UID race discussed during investigation was a hypothesis. Measuring the original network stall still requires a trace from an affected device.
 
+Inspection of the installed Firebase Auth SDK also found a concrete mobile-specific dependency: `getAuth()` installs `browserPopupRedirectResolver`, whose `_shouldInitProactively` is true on mobile browsers, Safari and iOS. Auth's initialization awaits that resolver's hidden iframe before restoring the current user and notifying the observer. A slow first cross-origin iframe load can therefore delay ordinary session restoration even though no Google popup was requested.
+
+Web now calls `initializeAuth()` with the same IndexedDB → localStorage → sessionStorage persistence hierarchy, omitting the startup popup resolver. Google sign-in, account linking and reauthentication pass `browserPopupRedirectResolver` explicitly, so its iframe is initialized when one of those flows is requested. Existing stored logins retain the same persistence stores. Native Google sign-in uses its existing separate implementation. This removes the unnecessary iframe dependency; it does not prove that the iframe was the stalled request on the reported device.
+
 ## Current sequence
 
-1. Firebase's auth observer resolves the signed-in user. The data hook receives that React user's UID explicitly.
+1. Firebase restores persistence without eagerly opening the popup iframe, and its auth observer resolves the signed-in user. The data hook receives that React user's UID explicitly.
 2. After the entry route identifies an existing account or completed onboarding, the data hook starts in `HomeScreen`, alongside the billing gate. It no longer waits for the large workout screen to mount. Fixed three-second animation gates have been removed.
 3. Settings and the account-scoped split snapshot load. A missing settings document reported only by the local Firestore cache is ignored: a cold cache cannot prove the account is empty.
 4. An initialized account with usable settings and splits can render while current-week history is still loading. A matching local split revision still requires no split collection download. Settings and revisions continue to reconcile with Firebase.
@@ -36,6 +40,6 @@ Starting the hook earlier can begin its queries even while the billing gate is v
 
 ## Verification
 
-`tests/startup-hydration.test.ts` runs the real data hook against controlled React effects, clocks, storage and Firestore deliveries. It covers cold-cache absence, slow history, automatic recovery, bounded retries, manual retry, warm-cache zero split downloads, independent history/split delivery and cancelled account callbacks. Existing split-cache, revision-write, plan-generation and week-query tests provide the surrounding coverage. These are deterministic regression checks, not measured production latency or a Firestore invoice.
+`tests/auth-startup.test.ts` checks deferred popup initialization, unchanged persistence selection, hot-refresh reuse, native persistence, and explicit resolvers for all three web Google flows. `tests/startup-hydration.test.ts` runs the real data hook against controlled React effects, clocks, storage and Firestore deliveries. It covers cold-cache absence, slow history, automatic recovery, bounded retries, manual retry, warm-cache zero split downloads, independent history/split delivery and cancelled account callbacks. Existing split-cache, revision-write, plan-generation and week-query tests provide the surrounding coverage. These are deterministic regression checks, not measured production latency or a Firestore invoice.
 
-Sources: `app/index.tsx`, `backend/firebase/useWorkoutData.ts`, `backend/contracts.ts`, `backend/firebase/splitCache.ts`.
+Sources: `app/index.tsx`, `backend/firebase/client.ts`, `backend/firebase/googleSignIn.ts`, `backend/firebase/useWorkoutData.ts`, `backend/contracts.ts`, `backend/firebase/splitCache.ts`. The installed SDK's `AuthImpl._initializeWithPersistence`, `BrowserPopupRedirectResolver._shouldInitProactively` and `getAuth` establish the iframe dependency.
