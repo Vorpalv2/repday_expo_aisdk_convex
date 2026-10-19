@@ -21,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './client';
 import { stableSerialize } from '../../lib/stableSerialize';
+import { persistRestDay, persistScheduleOverrides } from './scheduleWrites';
 import type {
   WorkoutBackendBindings,
   WorkoutRecord,
@@ -399,7 +400,12 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess }: UseWorkoutDat
 
   const saveScheduleOverrides = useCallback(({ scheduleOverrides }: { scheduleOverrides: Record<string, string | null> }) => {
     if (!uid || !db) return Promise.reject(new Error('Sign in to swap workout days.'));
-    return setDoc(doc(db, 'users', uid, 'settings', 'main'), { scheduleOverrides, updatedAt: Date.now() }, { merge: true });
+    return persistScheduleOverrides(db, uid, scheduleOverrides);
+  }, [uid]);
+
+  const saveRestDay = useCallback(({ dayKey, rest }: { dayKey: string; rest: boolean }) => {
+    if (!uid || !db) return Promise.reject(new Error('Sign in to change rest days.'));
+    return persistRestDay(db, uid, dayKey, rest);
   }, [uid]);
 
   return {
@@ -423,5 +429,6 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess }: UseWorkoutDat
     reorderSplitPositions,
     saveSettings,
     saveScheduleOverrides,
+    saveRestDay,
   };
 }

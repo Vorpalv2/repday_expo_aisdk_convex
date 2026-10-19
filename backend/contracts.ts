@@ -112,4 +112,5 @@ export interface WorkoutBackendBindings {
     remindersEnabled: boolean;
   }) => Promise<unknown>;
   saveScheduleOverrides: (args: { scheduleOverrides: Record<string, string | null> }) => Promise<unknown>;
+  saveRestDay: (args: { dayKey: string; rest: boolean }) => Promise<unknown>;
 }
