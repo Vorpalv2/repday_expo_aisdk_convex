@@ -185,14 +185,20 @@ function StartupRecoveryScreen({message,onRetry}:{message:string;onRetry?:()=>vo
 
 function LoadingScreen({status}:{status:BillingStatus|null}){
  useWhiteLoadingChrome();
+ const {width:viewportWidth}=useWindowDimensions();
+ const [viewportReady,setViewportReady]=useState(false);
  const showPlus=!!status?.premium&&(status.accessSource==='manual'||(typeof status.paidUntil==='number'&&status.paidUntil>Date.now()));
  const [frame,setFrame]=useState(0);
- const frameWidth=Math.min((Dimensions.get('window').width-32)*.75,345);
+ // A fixed positive first render matches static HTML during hydration. Expo's
+ // server window is zero-sized; reading Dimensions directly made this -24px.
+ const measuredWidth=viewportReady&&Number.isFinite(viewportWidth)&&viewportWidth>0?viewportWidth:375;
+ const frameWidth=Math.min(Math.max(1,(measuredWidth-32)*.75),345);
  const spriteScale=frameWidth/368;
  const frameHeight=496*spriteScale;
  const column=frame%4;
  const row=Math.floor(frame/4);
  useEffect(()=>{
+  setViewportReady(true);
   const timer=setInterval(()=>setFrame(current=>(current+1)%8),145);
   return()=>clearInterval(timer);
  },[]);
@@ -203,6 +209,8 @@ function LoadingScreen({status}:{status:BillingStatus|null}){
    </View>
    {showPlus&&<View testID="loading-plus-badge" pointerEvents="none" style={{position:'absolute',right:8*spriteScale,top:22*spriteScale,backgroundColor:PLUS_GOLD.background,borderColor:'#fff',borderWidth:2,borderRadius:12,paddingHorizontal:9,paddingVertical:4,shadowColor:PLUS_GOLD.border,shadowOpacity:.2,shadowRadius:4,shadowOffset:{width:0,height:2}}}><Text style={{color:PLUS_GOLD.ink,fontSize:11,fontWeight:'900',letterSpacing:1}}>PLUS</Text></View>}
   </View>
+  <ActivityIndicator size="small" color="#3478f6"/>
+  <Text style={{marginTop:12,color:'#69727c',fontSize:15}}>Loading Repday…</Text>
  </SafeAreaView>;
 }
 

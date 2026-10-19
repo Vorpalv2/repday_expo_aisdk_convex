@@ -29,7 +29,7 @@ function client(platform: 'web' | 'ios', initializeError?: { code: string }) {
         if (initializeError) throw initializeError;
         return auth;
       },
-      getAuth: () => { reused++; return auth; },
+      getAuth: () => { reused++; if (initializeError) throw initializeError; return auth; },
       indexedDBLocalPersistence: idb, browserLocalPersistence: local, browserSessionPersistence: session,
       getReactNativePersistence: (received: unknown) => { nativeStorage = received; return native; },
     },
@@ -42,18 +42,14 @@ function client(platform: 'web' | 'ios', initializeError?: { code: string }) {
   return { api, auth, options, reused, nativeStorage, storage, idb, local, session, native };
 }
 
-test('web restores the existing persistence hierarchy without eagerly initializing the popup iframe', () => {
+test('web delegates persistence and popup initialization to the standard Firebase browser initializer', () => {
   const h = client('web');
   assert.equal(h.api.auth, h.auth);
-  assert.equal(h.reused, 0);
-  assert.deepEqual([...h.options.persistence], [h.idb, h.local, h.session]);
-  assert.equal('popupRedirectResolver' in h.options, false);
+  assert.equal(h.reused, 1);
+  assert.equal(h.options, undefined, 'the custom initializer is not used on web');
 });
 
-test('hot refresh reuses Auth only when already initialized; other initialization errors remain visible', () => {
-  const h = client('web', { code: 'auth/already-initialized' });
-  assert.equal(h.reused, 1);
-  assert.equal(h.api.auth, h.auth);
+test('browser initialization errors remain visible instead of silently changing persistence', () => {
   assert.throws(() => client('web', { code: 'auth/invalid-api-key' }), error => (error as { code: string }).code === 'auth/invalid-api-key');
 });
 
@@ -63,7 +59,7 @@ test('native auth retains AsyncStorage persistence', () => {
   assert.equal(h.nativeStorage, h.storage);
 });
 
-test('web Google sign-in, linking and reauthentication explicitly enable the popup resolver on demand', async () => {
+test('web Google sign-in, linking and reauthentication use the initialized default popup resolver', async () => {
   const resolver = {}, auth = {}, user = {}, credential = {};
   const calls: { method: string; args: unknown[] }[] = [];
   class GoogleAuthProvider {}
@@ -80,6 +76,6 @@ test('web Google sign-in, linking and reauthentication explicitly enable the pop
   calls.forEach((call, i) => {
     assert.equal(call.args[0], i === 0 ? auth : user);
     assert.ok(call.args[1] instanceof GoogleAuthProvider);
-    assert.equal(call.args[2], resolver);
+    assert.equal(call.args.length, 2);
   });
 });

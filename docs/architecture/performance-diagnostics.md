@@ -4,6 +4,8 @@ Assessment date: **19 October 2026**
 Application revision assessed: **`08e5ccc`**  
 Scope: web startup, workout rendering, exercise media, caching and the requested user journey.
 
+**Later same-day update:** After this baseline, the user reported a white screen and stalled Google login in the installed web app, while the regular browser version behaved differently. The deferred Firebase popup initialization described in the baseline below was rolled back to the standard SDK initializer. The loader's invalid server-rendered dimensions were corrected, and visible loading/error fallbacks were added. See [Startup hydration and recovery](startup-hydration.md). The measured artifact sizes below remain a historical snapshot of `08e5ccc`, not the replacement build.
+
 ## 1. What has actually been checked
 
 This is a baseline from production build artifacts and application source, with the results of the completed automated checks. It is **not** a browser performance trace or a completed end-to-end user test.
@@ -50,7 +52,7 @@ There is no equivalent measured older-build baseline in this assessment. No bund
 
 | Area | Current implementation | Expected benefit | Evidence boundary |
 | --- | --- | --- | --- |
-| Mobile/Safari authentication | Web Auth preserves its persistence hierarchy but defers the Google popup resolver until sign-in/linking/reauthentication requests it | Restoring a session no longer depends on eagerly loading the popup iframe | SDK initialization and application source were inspected; affected-device latency was not measured |
+| Mobile/Safari authentication at the assessed baseline | `08e5ccc` deferred the Google popup resolver; this was subsequently rolled back after installed-app regressions were reported | The intended reduction in iframe waiting was unverified on the affected installed app | Do not count this attempt as an established performance gain; current web Auth uses the standard SDK initializer |
 | Entry loading | Fixed three-second animation gates were removed | Avoids deliberate waiting after entry conditions are ready | Code change, not a measured three-second gain on every launch |
 | Startup requests | Workout data starts alongside the billing gate once auth and the entry route are ready | Independent requests can overlap | Real network overlap/timing still needs a trace |
 | History loading | Initialized accounts can render usable settings/splits while current-week history loads | History latency need not hold the entire app on the loading screen | Controlled regression checks cover a stalled history request |
