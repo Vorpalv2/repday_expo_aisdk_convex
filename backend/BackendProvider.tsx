@@ -25,6 +25,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 function FirebaseAuthBridge({ children }: React.PropsWithChildren) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userRevision, setUserRevision] = useState(0);
 
   useEffect(() => {
     if (!auth) {
@@ -78,7 +79,11 @@ function FirebaseAuthBridge({ children }: React.PropsWithChildren) {
       if (!auth?.currentUser) throw new Error('Sign in before linking a Google account.');
       try {
         const result = await linkGoogleProvider(auth.currentUser);
-        setUser(result.user);
+        await result.user.reload();
+        // Firebase mutates the existing User object in place after linking.
+        // A revision guarantees the profile re-renders with the new provider.
+        setUser(auth.currentUser);
+        setUserRevision((revision) => revision + 1);
       } catch (error) {
         const code = (error as { code?: string }).code;
         if (code === 'auth/credential-already-in-use' || code === 'auth/provider-already-linked') {
@@ -96,7 +101,7 @@ function FirebaseAuthBridge({ children }: React.PropsWithChildren) {
       if (!auth?.currentUser) throw new Error('Sign in before deleting your account.');
       await deleteFirebaseAccount(auth.currentUser, password, onProgress);
     },
-  }), [user, isLoading]);
+  }), [user, userRevision, isLoading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
