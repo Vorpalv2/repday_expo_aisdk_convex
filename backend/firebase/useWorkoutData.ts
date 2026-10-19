@@ -7,16 +7,20 @@ import {
   doc,
   getDocsFromCache,
   getDocsFromServer,
+  getDocFromServer,
+  increment,
+  runTransaction,
   onSnapshot,
   orderBy,
   query,
   setDoc,
-  updateDoc,
   where,
   writeBatch,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SplitCacheCoordinator, splitCacheKey, validRevision, splitSessions, upsertCachedSplit, appendCachedMove, type SplitDocument } from './splitCache';
 import { auth, db } from './client';
 import { stableSerialize } from '../../lib/stableSerialize';
 import { persistRestDay, persistScheduleOverrides } from './scheduleWrites';
@@ -74,11 +78,16 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
   const [remoteCollectionsVersion, setRemoteCollectionsVersion] = useState(0);
   const [remoteDataError, setRemoteDataError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const splitCache = useRef<SplitCacheCoordinator | null>(null);
+  const latestSplitRevision = useRef<{ uid: string; revision: number; mutationId?: string } | null>(null);
+  const mutationSequence = useRef(0);
   const historyCursor = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const remoteSettingsSignature = useRef<{ uid: string; value: string } | null>(null);
   const settingsWritesInFlight = useRef(new Set<string>());
   const historyRanges = useRef(new Map<string, Promise<void>>());
   const liveSyncEnabled = hasPlusAccess && remoteSettings?.liveSyncEnabled !== false;
+  const plusAccess = useRef(hasPlusAccess);
+  plusAccess.current = hasPlusAccess;
   const historyTimeZone = remoteSettings?.timeZone || 'Asia/Kolkata';
   const historyDay = restDayKey(now, historyTimeZone);
   const currentWeek = useMemo(() => activityWeek(now, historyTimeZone, 0), [historyDay, historyTimeZone]);
@@ -94,136 +103,99 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
       historyCursor.current = null;
       remoteSettingsSignature.current = null;
       settingsWritesInFlight.current.clear();
+      latestSplitRevision.current = null;
       return;
     }
 
-    const settingsRef = doc(db, 'users', uid, 'settings', 'main');
-    const splitsQuery = query(collection(db, 'users', uid, 'splits'), orderBy('position', 'asc'));
-    setRemoteDataError(null);
-
-    const applySplits = (snapshot: { docs: { data: () => any }[] }) => {
-      const sessions = snapshot.docs.map((item) => {
-        const split = item.data();
-        const session = split.data;
-        const targets = split.setTargets ?? {};
-        if (!session?.moves || !Object.keys(targets).length) return session;
-        return {
-          ...session,
-          moves: session.moves.map((move: any) => {
-            const moveTargets = Object.entries(targets)
-              .map(([key, value]: [string, any]) => ({ key, value }))
-              .filter(({ value }) => value?.moveKey === move.key)
-              .sort((a, b) => a.value.setIndex - b.value.setIndex);
-            if (!moveTargets.length) return move;
-            const sets = move.sets.map((set: any) => ({ ...set }));
-            for (const { value } of moveTargets) {
-              while (sets.length <= value.setIndex) {
-                const previous = sets.at(-1);
-                sets.push({ weight: previous?.weight ?? '0', reps: previous?.reps ?? '10', done: false });
-              }
-              sets[value.setIndex] = {
-                ...sets[value.setIndex],
-                weight: String(value.weight ?? sets[value.setIndex].weight),
-                reps: String(value.reps ?? sets[value.setIndex].reps),
-                done: false,
-              };
-            }
-            return { ...move, sets };
-          }),
-        };
-      });
-      setRemoteSplits({ userId: uid, sessions });
-    };
-
-    const unsubscribeSettings = onSnapshot(settingsRef, (snapshot) => {
-        const authUser = auth?.currentUser;
-        const settings = {
-          ...makeInitialSettings(uid),
-          ...(snapshot.exists() ? snapshot.data() : {}),
-          userId: uid,
-          user: { name: authUser?.displayName ?? null, email: authUser?.email ?? null },
-          initialized: snapshot.exists() && Boolean(snapshot.data().initialized ?? true),
-        } as WorkoutSettings;
-        remoteSettingsSignature.current = { uid, value: settingsSignature(settings) };
-        setRemoteSettings(settings);
-      }, (error) => { console.warn('[Repday] Settings listener failed', error); setRemoteDataError('Could not connect to your account data. Check your connection and try again.'); });
-
+    const firestore = db;
+    const settingsRef = doc(firestore, 'users', uid, 'settings', 'main');
+    const splitsQuery = query(collection(firestore, 'users', uid, 'splits'), orderBy('position', 'asc'));
     let cancelled = false;
-    const loadCollections = async () => {
-      // Render Firestore's persisted result first. This uses local IndexedDB and
-      // deliberately does not recreate a network listener after a reconnect.
-      const cacheResults = await Promise.allSettled([
-        getDocsFromCache(splitsQuery),
-      ]);
+    let migrating = false;
+    let sawServerRevision = false;
+    let lastPublishedRevision: number | null = null;
+    setRemoteSettings(undefined);
+    setRemoteSplits(undefined);
+    setRemoteDataError(null);
+    const coordinator = new SplitCacheCoordinator({
+      uid,
+      read: async () => {
+        const raw = await AsyncStorage.getItem(splitCacheKey(uid));
+        if (__DEV__ && raw) console.debug('[Repday] Splits: loading local revision cache');
+        return raw;
+      },
+      write: entry => AsyncStorage.setItem(splitCacheKey(uid), JSON.stringify(entry)),
+      fetch: async () => {
+        if (__DEV__) console.debug('[Repday] Splits: fetching server snapshot');
+        const snapshot = await getDocsFromServer(splitsQuery);
+        const settings = await getDocFromServer(settingsRef);
+        if (snapshot.metadata.hasPendingWrites || settings.metadata.hasPendingWrites) throw new Error('Waiting for your split edits to finish saving. Please retry.');
+        const revision = settings.data()?.splitsRevision;
+        if (!validRevision(revision)) throw new Error('Split revision is not ready. Please retry.');
+        coordinator.observe(revision, settings.data()?.splitsMutationId);
+        return { documents: snapshot.docs.map(item => item.data() as SplitDocument), revision };
+      },
+      publish: (entry, confirmed) => {
+        if (cancelled || auth?.currentUser?.uid !== uid) return;
+        setRemoteSplits({ userId: uid, sessions: splitSessions(entry.documents) });
+        if (confirmed && lastPublishedRevision !== entry.revision) {
+          if (__DEV__) console.debug('[Repday] Splits: confirmed revision', entry.revision);
+          lastPublishedRevision = entry.revision;
+          setRemoteCollectionsVersion(version => version + 1);
+        }
+      },
+      error: error => {
+        console.warn('[Repday] Split cache refresh failed', error);
+        setRemoteDataError('Could not refresh your workout splits. Your cached splits are available; check your connection and retry.');
+      },
+    });
+    splitCache.current = coordinator;
+    const unsubscribeSettings = onSnapshot(settingsRef, { includeMetadataChanges: true }, snapshot => {
       if (cancelled) return;
-      if (cacheResults[0].status === 'fulfilled') applySplits(cacheResults[0].value);
-
-      // Refresh splits once. Current-week history is loaded separately after
-      // account settings supply the time zone, with its optional Plus listener.
-      const serverResults = await Promise.allSettled([
-        getDocsFromServer(splitsQuery),
-      ]);
-      if (cancelled) return;
-      const splitResult = serverResults[0];
-      const splitsLoaded = splitResult.status === 'fulfilled';
-      if (splitResult.status === 'fulfilled') applySplits(splitResult.value);
-      if (splitsLoaded) setRemoteCollectionsVersion((version) => version + 1);
-      if (!splitsLoaded && cacheResults.every((result) => result.status === 'rejected')) {
-        setRemoteDataError('Could not connect to your workout data. Check your connection and try again.');
+      const authUser = auth?.currentUser;
+      const fields = snapshot.exists() ? snapshot.data() : {};
+      const settings = {
+        ...makeInitialSettings(uid), ...fields, userId: uid,
+        user: { name: authUser?.displayName ?? null, email: authUser?.email ?? null },
+        initialized: snapshot.exists() && Boolean(fields.initialized ?? true),
+      } as WorkoutSettings;
+      remoteSettingsSignature.current = { uid, value: settingsSignature(settings) };
+      setRemoteSettings(settings);
+      // Cached or speculative local settings must not certify a cache revision.
+      if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) return;
+      if (validRevision(fields.splitsRevision)) {
+        latestSplitRevision.current = { uid, revision: fields.splitsRevision, mutationId: fields.splitsMutationId };
+        if (!sawServerRevision || (plusAccess.current && fields.liveSyncEnabled !== false) || coordinator.knowsMutation(fields.splitsMutationId)) coordinator.observe(fields.splitsRevision, fields.splitsMutationId);
+        sawServerRevision = true;
       }
-    };
-    void loadCollections();
-
+      else if (!migrating) {
+        migrating = true;
+        // One-time migration for existing accounts, without overwriting a
+        // concurrent onboarding installation or split edit.
+        void runTransaction(firestore, async transaction => {
+          const current = await transaction.get(settingsRef);
+          if (!validRevision(current.data()?.splitsRevision)) transaction.set(settingsRef, { splitsRevision: 0, ...(!current.exists() ? { initialized: false } : {}) }, { merge: true });
+        }).catch(error => {
+          migrating = false;
+          console.warn('[Repday] Split revision migration failed', error);
+          setRemoteDataError('Could not prepare your split cache. Please retry.');
+        });
+      }
+    }, error => {
+      console.warn('[Repday] Settings listener failed', error);
+      setRemoteDataError('Could not connect to your account data. Check your connection and try again.');
+    });
     return () => {
       cancelled = true;
+      coordinator.stop();
+      if (splitCache.current === coordinator) splitCache.current = null;
       unsubscribeSettings();
     };
   }, [uid, retryCount]);
 
   useEffect(() => {
-    if (!uid || !db || !liveSyncEnabled) return;
-    const splitsQuery = query(collection(db, 'users', uid, 'splits'), orderBy('position', 'asc'));
-    const applySplits = (snapshot: { docs: { data: () => any }[] }) => {
-      const sessions = snapshot.docs.map((item) => {
-        const split = item.data();
-        const session = split.data;
-        const targets = split.setTargets ?? {};
-        if (!session?.moves || !Object.keys(targets).length) return session;
-        return {
-          ...session,
-          moves: session.moves.map((move: any) => {
-            const moveTargets = Object.entries(targets)
-              .map(([key, value]: [string, any]) => ({ key, value }))
-              .filter(({ value }) => value?.moveKey === move.key)
-              .sort((a, b) => a.value.setIndex - b.value.setIndex);
-            if (!moveTargets.length) return move;
-            const sets = move.sets.map((set: any) => ({ ...set }));
-            for (const { value } of moveTargets) {
-              while (sets.length <= value.setIndex) {
-                const previous = sets.at(-1);
-                sets.push({ weight: previous?.weight ?? '0', reps: previous?.reps ?? '10', done: false });
-              }
-              sets[value.setIndex] = {
-                ...sets[value.setIndex],
-                weight: String(value.weight ?? sets[value.setIndex].weight),
-                reps: String(value.reps ?? sets[value.setIndex].reps),
-                done: false,
-              };
-            }
-            return { ...move, sets };
-          }),
-        };
-      });
-      setRemoteSplits({ userId: uid, sessions });
-      setRemoteCollectionsVersion((version) => version + 1);
-    };
-    const unsubscribeSplits = onSnapshot(splitsQuery, applySplits, (error) => {
-      console.warn('[Repday] Live split sync failed', error);
-      setRemoteDataError('Could not keep your workout splits live-synced.');
-    });
-    return () => {
-      unsubscribeSplits();
-    };
+    const latest = latestSplitRevision.current;
+    if (liveSyncEnabled && latest?.uid === uid) splitCache.current?.observe(latest.revision, latest.mutationId);
   }, [uid, liveSyncEnabled]);
 
   useEffect(() => {
@@ -339,11 +311,33 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
     return request;
   }, [uid]);
 
+  const beginSplitChange = useCallback((patch: (documents: SplitDocument[]) => SplitDocument[]) => {
+    const mutationId = `${Date.now()}-${++mutationSequence.current}-${Math.random().toString(36).slice(2)}`;
+    splitCache.current?.register(mutationId, patch);
+    return mutationId;
+  }, []);
+
+  const commitSplitChange = useCallback(async (
+    patch: (documents: SplitDocument[]) => SplitDocument[],
+    write: (batch: ReturnType<typeof writeBatch>, firestore: NonNullable<typeof db>) => void,
+  ) => {
+    if (!uid || !db) throw new Error('Sign in to update workout splits.');
+    const mutationId = beginSplitChange(patch);
+    const coordinator = splitCache.current;
+    const batch = writeBatch(db);
+    write(batch, db);
+    batch.set(doc(db, 'users', uid, 'settings', 'main'), { splitsRevision: increment(1), splitsMutationId: mutationId }, { merge: true });
+    try { await batch.commit(); }
+    catch (error) { coordinator?.forget(mutationId); throw error; }
+  }, [uid, beginSplitChange]);
+
   const syncSplits = useCallback(async ({ items }: { items: any[] }) => {
     const firestore = db;
     if (!uid || !firestore) return;
-    await billingRequest('/api/splits',{items:items.map((item,position)=>({item,position})),replace:true});
-  }, [uid]);
+    const mutationId = beginSplitChange(documents => items.map((item, position) => upsertCachedSplit(documents, item, position).find(value => value.clientId === item.id)!));
+    try { await billingRequest('/api/splits',{mutationId,items:items.map((item,position)=>({item,position})),replace:true}); }
+    catch (error) { splitCache.current?.forget(mutationId); throw error; }
+  }, [uid, beginSplitChange]);
 
   const syncHistory = useCallback(async ({ items }: { items: WorkoutRecord[] }) => {
     if (!uid || !db) return;
@@ -367,20 +361,23 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
     return deleteDoc(doc(db, 'users', uid, 'history', historyDocumentId(clientId)));
   }, [uid]);
 
-  const upsertSplit = useCallback(({ item, position }: { item: any; position: number }) => {
+  const upsertSplit = useCallback(async ({ item, position }: { item: any; position: number }) => {
     if (!uid || !db) return Promise.reject(new Error('Sign in to save workout splits.'));
-    return billingRequest('/api/splits',{items:[{item,position,resetTargets:true}]}).then(()=>undefined);
-  }, [uid]);
+    const mutationId = beginSplitChange(documents => upsertCachedSplit(documents, item, position, true));
+    try { await billingRequest('/api/splits',{mutationId,items:[{item,position,resetTargets:true}]}); }
+    catch (error) { splitCache.current?.forget(mutationId); throw error; }
+  }, [uid, beginSplitChange]);
 
   const appendSplitExercise = useCallback(({ splitId, move }: { splitId: string; move: any }) => {
     if (!uid || !db) return Promise.reject(new Error('Sign in to update workout splits.'));
     const { activeSessionOnly: _activeSessionOnly, addToSplitOnFinish: _addToSplitOnFinish, ...savedMove } = move;
     const sets = savedMove.sets.map(({ addedDuringWorkout: _addedDuringWorkout, ...set }: any) => ({ ...set, done: false }));
-    return updateDoc(doc(db, 'users', uid, 'splits', splitDocumentId(splitId)), {
-      'data.moves': arrayUnion({ ...savedMove, sets }),
+    const saved = { ...savedMove, sets };
+    return commitSplitChange(documents => documents.map(document => document.clientId === splitId ? appendCachedMove(document, saved) : document), (batch, firestore) => batch.update(doc(firestore, 'users', uid, 'splits', splitDocumentId(splitId)), {
+      'data.moves': arrayUnion(saved),
       updatedAt: Date.now(),
-    });
-  }, [uid]);
+    }));
+  }, [uid, commitSplitChange]);
 
   const updateSplitSetTargets = useCallback(({ splitId, targets }: {
     splitId: string; targets: { moveKey: string; setIndex: number; weight: string; reps: string }[];
@@ -392,21 +389,22 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
       `${encodeURIComponent(target.moveKey)}_set_${target.setIndex}`,
       { moveKey: target.moveKey, setIndex: target.setIndex, weight: target.weight, reps: target.reps },
     ]));
-    return setDoc(targetRef, { setTargets }, { merge: true });
-  }, [uid]);
+    return commitSplitChange(documents => documents.map(document => document.clientId === splitId ? { ...document, setTargets: { ...document.setTargets, ...setTargets } } : document), batch => batch.set(targetRef, { setTargets }, { merge: true }));
+  }, [uid, commitSplitChange]);
 
   const deleteSplit = useCallback(({ clientId }: { clientId: string }) => {
     if (!uid || !db) return Promise.reject(new Error('Sign in to delete workout splits.'));
-    return deleteDoc(doc(db, 'users', uid, 'splits', splitDocumentId(clientId)));
-  }, [uid]);
+    return commitSplitChange(documents => documents.filter(document => document.clientId !== clientId), (batch, firestore) => batch.delete(doc(firestore, 'users', uid, 'splits', splitDocumentId(clientId))));
+  }, [uid, commitSplitChange]);
 
   const reorderSplitPositions = useCallback(async ({ clientIds }: { clientIds: string[] }) => {
     const firestore = db;
     if (!uid || !firestore) return;
-    const batch = writeBatch(firestore);
-    clientIds.forEach((clientId, position) => batch.set(doc(firestore, 'users', uid, 'splits', splitDocumentId(clientId)), { clientId, position, updatedAt: Date.now() }, { merge: true }));
-    if (clientIds.length) await batch.commit();
-  }, [uid]);
+    if (!clientIds.length) return;
+    await commitSplitChange(documents => documents.map(document => { const position = clientIds.indexOf(document.clientId); return position < 0 ? document : { ...document, position }; }), batch => {
+      clientIds.forEach((clientId, position) => batch.set(doc(firestore, 'users', uid, 'splits', splitDocumentId(clientId)), { clientId, position, updatedAt: Date.now() }, { merge: true }));
+    });
+  }, [uid, commitSplitChange]);
 
   const saveSettings = useCallback(async (settings: {
     weeklyPlan: Record<number, string | null>; restDays: Record<string, boolean | 'auto'>; autoRestNextDate: string | null; focusDraft: any; selectedSessionId: string | null;

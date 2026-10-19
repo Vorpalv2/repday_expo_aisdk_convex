@@ -53,6 +53,9 @@ export interface BackendAuth {
 }
 
 export type WorkoutSettings = {
+  /** Account-wide split cache generation; changed atomically with split writes. */
+  splitsRevision?: number;
+  splitsMutationId?: string;
   userId?: string;
   user?: { name?: string | null; email?: string | null } | null;
   initialized?: boolean;

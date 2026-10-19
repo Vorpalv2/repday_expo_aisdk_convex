@@ -1,5 +1,7 @@
 # Firestore optimizations and caching
 
+> **19 October 2026 update:** Split startup and live synchronization now use an account revision and a complete per-account local snapshot. See [Persistent split caching with account revisions](split-revision-cache.md) for the current implementation, migration, concurrency behavior, and operation counts. The earlier split-fetch/listener description below records the previous design. Startup history now loads the complete current Monday–Sunday week rather than a fixed seven records.
+
 **Status:** Implemented  
 **Last updated:** 17 October 2026  
 **Applies to:** Repday web, iOS, and Android clients using Cloud Firestore Standard

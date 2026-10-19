@@ -116,6 +116,10 @@ The packages below are direct dependencies from [`package.json`](package.json). 
 
 Persistent Firestore caching has no fixed 30-minute expiry. Firestore's reconnect billing rules and device storage retention are separate concerns. See the [caching implementation](docs/cache-first-splits-history-live-sync.md), [optimization guide](docs/firestore-optimizations-and-caching.md), and [database I/O case study](docs/database-io-case-study.md).
 
+Split startup now uses a complete per-account local snapshot and the revision in the existing settings document. Unchanged cached splits require zero split-document reads. See [revision caching, migration, and read/write costs](docs/split-revision-cache.md).
+
+For onboarding, preferences, split mutations, workouts, history, AI Coach, notifications, billing and deletion, see the [app-wide database I/O reference](docs/app-database-io-reference.md).
+
 ## AI Coach
 
 Expo API routes keep model calls and server credentials on the server. The Coach endpoint uses the Vercel AI SDK's `streamText`, `toTextStream` and `createTextStreamResponse`; the client reads chunks through `expo/fetch` and renders headings, bold text and indented lists as the reply arrives.

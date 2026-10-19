@@ -6,7 +6,7 @@ import {stableSerialize} from '../stableSerialize';
 const set=z.object({weight:z.string().max(30),reps:z.string().max(30),done:z.boolean().optional()}).passthrough();
 const move=z.object({name:z.string().min(1).max(500),sets:z.array(set).max(100)}).passthrough();
 const session=z.object({id:z.string().min(1).max(200).refine(value=>value!=='.'&&value!=='..'&&!/^__.*__$/.test(value)),name:z.string().min(1).max(500),moves:z.array(move).max(100)}).passthrough();
-export const splitRequest=z.object({items:z.array(z.object({item:session,position:z.number().int().min(0).max(10000),resetTargets:z.boolean().optional()})).max(200),replace:z.boolean().optional(),planMode:z.enum(['onboarding','rebuild']).optional(),settings:z.object({initialized:z.literal(true),weeklyPlan:z.record(z.string(),z.string().nullable()),focusDraft:z.null(),selectedSessionId:z.string(),trainingGoal:z.enum(['strength','muscle','fitness','endurance']).optional(),guidedPlan:z.record(z.string(),z.unknown()),autoRestStartedAt:z.number().optional(),autoRestNextDate:z.string().optional(),updatedAt:z.number()}).optional()});
+export const splitRequest=z.object({mutationId:z.string().min(1).max(200).optional(),items:z.array(z.object({item:session,position:z.number().int().min(0).max(10000),resetTargets:z.boolean().optional()})).max(200),replace:z.boolean().optional(),planMode:z.enum(['onboarding','rebuild']).optional(),settings:z.object({initialized:z.literal(true),weeklyPlan:z.record(z.string(),z.string().nullable()),focusDraft:z.null(),selectedSessionId:z.string(),trainingGoal:z.enum(['strength','muscle','fitness','endurance']).optional(),guidedPlan:z.record(z.string(),z.unknown()),autoRestStartedAt:z.number().optional(),autoRestNextDate:z.string().optional(),updatedAt:z.number()}).optional()});
 export function validateSplitQuota(existing:string[],requested:string[],replace:boolean,premium:boolean,enforced:boolean){
  if(new Set(requested).size!==requested.length)throw new ServerError(400,'Duplicate split IDs.');
  const creates=requested.some(id=>!existing.includes(id));
@@ -20,7 +20,7 @@ export function splitNeedsWrite(existing:Record<string,any>|undefined,item:Recor
 }
 export async function saveSplits(uid:string,body:unknown){
  const parsed=splitRequest.safeParse(body);if(!parsed.success)throw new ServerError(400,'Invalid workout splits. Check exercise names, weights and reps.');
-  const {items,replace=false,settings,planMode}=parsed.data;
+  const {items,replace=false,settings,planMode,mutationId}=parsed.data;
  return inTransaction(async transaction=>{
   const quota=await readDocument(`splitQuotas/${uid}`,transaction);
   const account=await readDocument(`billingAccounts/${uid}`,transaction);
@@ -43,7 +43,12 @@ export async function saveSplits(uid:string,body:unknown){
    if(!splitNeedsWrite(existingById.get(encodeURIComponent(item.id)),item,position,resetTargets))continue;
    writes.push(documentWrite(`users/${uid}/splits/${encodeURIComponent(item.id)}`,{clientId:item.id,data:item,position,...(resetTargets?{setTargets:{}}:{}),updatedAt:Date.now()},true));
   }
-  if(settings)writes.push(documentWrite(`users/${uid}/settings/main`,settings,true));
+  const splitChanged=writes.length>0;
+  if(settings||splitChanged){
+   const write:any=documentWrite(`users/${uid}/settings/main`,{...settings,...(splitChanged?{splitsMutationId:mutationId??crypto.randomUUID()}: {})},true);
+   if(splitChanged)write.updateTransforms=[{fieldPath:'splitsRevision',increment:{integerValue:'1'}}];
+   writes.push(write);
+  }
   if(writes.length)writes.unshift(documentWrite(`splitQuotas/${uid}`,{revision:(quota?.revision||0)+1}));
   return {result:{saved:items.length},writes};
  });

@@ -1,5 +1,7 @@
 # Cache-first splits and history, with optional Plus live sync
 
+> **Current behavior (19 October 2026):** This document records the earlier design. Split reads now use [revision caching](split-revision-cache.md), and startup history covers the complete current Monday–Sunday week. See the [app-wide I/O reference](app-database-io-reference.md) for current operation counts and boundaries.
+
 **Status:** Implemented  
 **Date:** 17 October 2026  
 **Scope:** `users/{uid}/splits` and the latest workout-history records
