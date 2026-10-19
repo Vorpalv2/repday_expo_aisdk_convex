@@ -941,7 +941,7 @@ function ActivityTracker({collapsed,onCollapseToggle,expanded,month,onToggle,onM
  },[currentMonday,timeZone,onLoadWeek]);
  const weekGesture=useMemo(()=>PanResponder.create({
   onMoveShouldSetPanResponder:(_,gesture)=>!expanded&&Math.abs(gesture.dx)>22&&Math.abs(gesture.dx)>Math.abs(gesture.dy)*1.5,
-  onPanResponderRelease:(_,gesture)=>{if(gesture.dx< -50)changeWeek(-1);else if(gesture.dx>50)changeWeek(1);},
+  onPanResponderRelease:(_,gesture)=>{if(gesture.dx< -50)changeWeek(1);else if(gesture.dx>50)changeWeek(-1);},
  }),[expanded,changeWeek]);
  const weekMinutes=useMemo(()=>displayedWeek.days.map(({key})=>history.filter(workout=>restDayKey(workout.startedAt,timeZone)===key).reduce((total,workout)=>total+Math.max(0,workout.duration)/60,0)),[history,displayedWeek,timeZone]);
  const weeklyCount=weekMinutes.filter(minutes=>minutes>0).length;

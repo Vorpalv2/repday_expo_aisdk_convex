@@ -193,10 +193,10 @@ Home activity, Progress activity, and the default Current week Recent sessions d
 | User action | Read behavior | Writes |
 | --- | --- | ---: |
 | Show current-week activity or Current week history | Reuse startup data | 0 |
-| Swipe left once into an uncached week with N workouts | One query, approximately `Q(N)` document reads | 0 |
-| Swipe left again to another uncached week | A separate bounded range query, charged for that week's documents | 0 |
+| Swipe right-to-left into the next/current week | One bounded query only when that week is not already loaded, approximately `Q(N)` document reads | 0 |
+| Swipe left-to-right into an older uncached week | A separate bounded Monday–Sunday range query, charged for that week's documents | 0 |
 | Revisit the exact loaded weekly range in the same hook lifetime | 0 additional reads | 0 |
-| Return right to current week | Reuse current-week data | 0 |
+| Return right-to-left to the current week | Reuse current-week data | 0 |
 | Move past current week | Blocked | 0 |
 | Reload and request an older week again | Range-request map is not persisted; may query again | 0 |
 | Change current week/timezone | Retarget the startup query/listener | 0 directly |
