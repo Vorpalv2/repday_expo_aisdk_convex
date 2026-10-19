@@ -94,4 +94,4 @@ The current system estimates visible 2D joint motion. It cannot reliably assess 
 - `app/index.tsx`: active workout Form button and `FormCoachCameraScreen` integration; callback that marks the reached set complete.
 - `components/FormCoachCameraScreen.web.tsx`: browser camera, MediaPipe load, pose landmarks, movement classification, rep state machine, feedback, controls, rest handling, summary, and resource cleanup.
 - `components/FormCoachCameraScreen.tsx`: native camera preview and placeholder behavior.
-- `app_design_flow/frontend/mobile-pose-coach-debugging.md`: debugging notes for mobile browser pose initialization.
+- [Mobile pose coach debugging](mobile-pose-coach-debugging.md): debugging notes for mobile browser pose initialization.

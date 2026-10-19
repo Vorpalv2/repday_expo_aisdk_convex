@@ -53,4 +53,4 @@ This is simple and avoids needing a catalog backend, but initial catalog downloa
 
 - `app/index.tsx`: `EXERCISE_CATALOG_COUNT`, `datasetAsset`, `parseDatasetExercises`, `fetchExerciseCatalog`, `loadCatalog`, catalog loading effects, `searchMatches`, `filterOptions`, and the Search `FlatList`.
 - `data/exercises.ts`: local exercise fallback/catalog entries.
-- `app_design_flow/frontend/active-session.md`: workout context that uses the exercise library.
+- [Active workout](active-session.md): workout context that uses the exercise library.

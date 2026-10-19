@@ -27,7 +27,7 @@ flowchart LR
 | Expo/EAS Hosting | Serves web assets and runs `/api/coach` and `/api/analyze-workout`. |
 | Firebase Authentication | Email/password and Google identity; issues ID tokens. |
 | Firestore | UID-scoped settings, splits, history, and active-session documents. See [Firestore model](../backend/firestore-data-model.md). |
-| Upstash Redis | Per-user, per-feature request counters checked before AI Gateway. See [rate-limit internals](<../system design/ai-rate-limiting.md>). |
+| Upstash Redis | Per-user, per-feature request counters checked before AI Gateway. See [rate-limit internals](../architecture/ai-rate-limiting.md). |
 | Vercel AI Gateway | Routes approved requests to the configured model. Provider credentials remain server-side. |
 
 ## Environment variables
@@ -44,7 +44,7 @@ The API route also reads Firebase's public web API key to verify an ID token wit
 
 `firestore.rules` allows a signed-in user to read/write only under `users/{theirUid}`. `firebase.json` points Firebase CLI to the database rules and configures Email/Password and Google sign-in. `storage.rules` remains only for cleanup compatibility with profile images uploaded by older app versions. Updating Firebase rules/provider settings is a Firebase deployment/configuration action separate from deploying the EAS web/API app.
 
-Production server credentials for EAS Hosting are configured in EAS project environment variables with **Sensitive** visibility. Hosting does not support the **Secret** visibility type. Never commit `.env.local` or secret values. Rate-limit thresholds and failure behavior are documented in [AI request rate limiting](<../system design/ai-rate-limiting.md>).
+Production server credentials for EAS Hosting are configured in EAS project environment variables with **Sensitive** visibility. Hosting does not support the **Secret** visibility type. Never commit `.env.local` or secret values. Rate-limit thresholds and failure behavior are documented in [AI request rate limiting](../architecture/ai-rate-limiting.md).
 
 ## Source files
 

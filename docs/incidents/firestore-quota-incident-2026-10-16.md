@@ -136,4 +136,4 @@ AI Coach still checks access in its server endpoint, but a cache hit avoids a Fi
 ## Related implementation
 
 - [Firestore adapter](/Users/aakash/Desktop/ai_projects/expo_workout_tracker/backend/firebase/useWorkoutData.ts)
-- [Firebase backend notes](../../backend/README.md)
+- [Firestore data model](../backend/firestore-data-model.md)

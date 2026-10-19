@@ -26,6 +26,32 @@ The documentation is grouped by the kind of decision or workflow it describes.
 - [QStash job lifecycle](notifications/qstash.md)
 - [Web rest notifications](notifications/web-push.md)
 
+## Deployment and configuration
+
+- [Production and configuration](infrastructure/production-and-configuration.md)
+
+## Frontend and product flows
+
+- [Onboarding](frontend/onboarding.md)
+- [Active workout](frontend/active-session.md)
+- [Workout splits](frontend/split-management.md)
+- [History and progress](frontend/history-and-progress.md)
+- [Workout import](frontend/workout-import.md)
+- [Exercise catalog and search](frontend/exercise-catalog-and-search.md)
+- [Form Coach / Pose Coach](frontend/pose-coach.md)
+- [Mobile pose coach debugging](frontend/mobile-pose-coach-debugging.md)
+
+## Backend and data model
+
+- [Authentication and account ownership](backend/auth-and-account-ownership.md)
+- [Local and cloud sync](backend/local-and-cloud-sync.md)
+- [Firestore data model](backend/firestore-data-model.md)
+
+## Analysis and product decisions
+
+- [AI development token cost report](analysis/ai-development-token-cost-report.md)
+- [Premium features](analysis/premium-features-breakdown/README.md)
+
 ## Product and implementation guides
 
 - [Training plan builder](guides/training-plan-builder.md)
@@ -36,4 +62,4 @@ The documentation is grouped by the kind of decision or workflow it describes.
 - [Billing worker subrequest incident](incidents/billing-worker-subrequest-incident.md)
 - [UPI checkout retry incident](incidents/upi-checkout-retry-incident.md)
 
-The broader product and screen design notes remain in [`app_design_flow`](../app_design_flow/README.md), while backend implementation notes remain in [`backend`](../backend/README.md).
+The documentation is self-contained under this directory. Frontend, backend, analysis, architecture, billing, infrastructure, notification, guide, and incident notes are grouped above by the area they describe.
