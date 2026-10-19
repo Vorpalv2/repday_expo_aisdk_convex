@@ -39,7 +39,7 @@ export function SubscriptionPanel({status,palette:_palette,onChange,onRefresh,on
  const [expanded,setExpanded]=useState(!!onClose);
  const manual=status?.accessSource==='manual';
  const premium=!!status?.premium;
- const monthlyPrice=status?status.amountPaise/100:75;
+ const monthlyPrice=status?status.amountPaise/100:99;
  const run=async(action:()=>Promise<void>,toastOnError=false)=>{if(busy)return;setBusy(true);setMessage('');try{await action();}catch(error){const detail=error instanceof Error?error.message:'Please retry.';setMessage(detail);if(toastOnError)onNotify(detail);}finally{setBusy(false);}};
  const button={backgroundColor:PLUS_GOLD.background,borderRadius:18,minHeight:50,alignItems:'center' as const,justifyContent:'center' as const,paddingHorizontal:18,borderWidth:1,borderColor:PLUS_GOLD.border};
  const statusText=manual?'Complimentary access':premium?'Membership active':'Unlock Repday Plus';

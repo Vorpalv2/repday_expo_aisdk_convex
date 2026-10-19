@@ -2,6 +2,8 @@
 
 Last updated: 2026-10-16 (Asia/Kolkata).
 
+**Current production update (19 October 2026):** live billing now offers **₹99/month** (9900 paise); existing subscriptions retain their original recurring price. This document records the earlier sandbox setup. See [current live configuration](razorpay-live-cutover.md#current-production-offer--inr-99month).
+
 ## Checkpoint before payments
 
 - Git tag: `checkpoint/pre-razorpay-2026-10-16`

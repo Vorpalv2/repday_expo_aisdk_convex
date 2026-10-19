@@ -2,6 +2,8 @@
 
 Updated: 17 October 2026 (Asia/Kolkata).
 
+**Live pricing update (19 October 2026):** the current production offer is **₹99/month** (9900 paise), using live plan `plan_TpgYjRMlaoyST4`. Existing subscriptions retain their original price. The ₹75 sandbox and launch-price references below describe the earlier walkthrough. See [current live configuration](razorpay-live-cutover.md#current-production-offer--inr-99month).
+
 **Current production correction:** billing now uses version-conditional Firestore
 commits instead of the billing transaction sequences described in the original
 walkthrough below. Status reads do not reconcile provider invoices; signed

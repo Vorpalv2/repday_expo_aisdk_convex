@@ -2,7 +2,9 @@
 
 ## Current status
 
-Live mode is deployed to https://repday.expo.app using the INR 1 plan below. Immutable deployment: https://repday--acx36u8up4.expo.app.
+The current offer is INR 99/month (9900 paise), using live plan `plan_TpgYjRMlaoyST4`, configured on 19 October 2026. The authenticated live Razorpay API confirmed INR, monthly interval 1, and 9900 paise. The price and plan ID must be deployed together. Existing subscriptions retain their original recurring price and invoice verification amount; no existing customer mandate is migrated by changing this offer.
+
+The original live cutover used the INR 1 verification plan below. Its immutable deployment was https://repday--acx36u8up4.expo.app. The following cutover steps and validation results describe that historical release.
 
 The live key pair was read from the user-provided RAZORPAY_LIVEAPI_KEY_ID and RAZORPAY_LIVEAPI_KEY_SECRET entries in .env.local. Canonical server variables were uploaded to the EAS production environment with sensitive visibility. Local test credentials were preserved under RAZORPAY_TEST_* names. No credentials are committed.
 
@@ -60,7 +62,7 @@ The tests use mocked providers/storage and clocks. Passing them does not confirm
 - Renewal cancellation retains the verified paid period. Account deletion still cancels renewal immediately before deleting data.
 - These changes add no provider calls to ordinary status reads or premium feature checks.
 
-## Production environment
+## Original verification environment (historical)
 
 Configure these together before redeploying:
 
@@ -98,9 +100,11 @@ Real-world verification remains pending until someone completes a live payment:
 6. Verify cancellation/reconciliation from another reload. Test expiry using mocked clocks rather than altering a real customer's entitlement.
 7. Test account deletion only with an explicitly authorized disposable account.
 
-## Switch back to INR 75
+## Current production offer — INR 99/month
 
-Create a separate INR 75 monthly plan in live mode; set its ID and 7500 paise in EAS production, then redeploy. Existing INR 1 subscriptions retain their original recurring price; changing the offer does not migrate them. Cancel the verification subscription after testing. Never describe these live tests as sandbox or simulated payments.
+On 19 October 2026, the user requested INR 100 and then corrected the amount to INR 99 before deployment. A separate live monthly plan `plan_TpgYjRMlaoyST4` was created and verified with `item.amount=9900`, `item.currency=INR`, `period=monthly`, and `interval=1`. Production now uses `RAZORPAY_PLAN_ID=plan_TpgYjRMlaoyST4` and `RAZORPAY_PLAN_AMOUNT_PAISE=9900`; live credentials, webhook settings, and billing enforcement remain unchanged. The membership panel's pre-status price fallback is also INR 99. API status and checkout descriptions use the server-configured price.
+
+The briefly requested INR 100 plan `plan_TpgYTj1rhYr9zS` was created before the correction arrived, but was never configured as the production offer. Creating a plan does not create a subscription or charge anyone. Existing INR 1 subscriptions retain their original recurring price; changing the offer does not migrate them. Never describe live payments as sandbox or simulated payments.
 
 ## Rollback
 
