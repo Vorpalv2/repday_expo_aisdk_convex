@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   collection,
   arrayUnion,
-  deleteDoc,
   doc,
   getDocsFromCache,
   getDocsFromServer,
@@ -54,6 +53,11 @@ const makeInitialSettings = (uid: string): WorkoutSettings => ({
 });
 const splitDocumentId = (clientId: string) => encodeURIComponent(clientId);
 const historyDocumentId = (clientId: string) => encodeURIComponent(clientId);
+const aggregatePeriodKeys = (timestamp: number, timeZone: string) => {
+  const dayKey = restDayKey(timestamp, timeZone);
+  const week = activityWeek(timestamp, timeZone, 0);
+  return { week: restDayKey(week.start, timeZone), month: dayKey.slice(0, 7) };
+};
 const savedSettingsKeys = [
   'initialized', 'weeklyPlan', 'restDays', 'autoRestNextDate', 'focusDraft',
   'selectedSessionId', 'country', 'timeZone', 'theme', 'liveSyncEnabled', 'activityDefaultCollapsed',
@@ -87,6 +91,7 @@ export function useWorkoutData({ uid, hasPlusAccess, now }: UseWorkoutDataOption
   const remoteSettingsSignature = useRef<{ uid: string; value: string } | null>(null);
   const settingsWritesInFlight = useRef(new Set<string>());
   const historyRanges = useRef(new Map<string, Promise<void>>());
+  const allTimeBackfillStarted = useRef<string | null>(null);
   const liveSyncEnabled = hasPlusAccess && remoteSettings?.liveSyncEnabled !== false;
   const plusAccess = useRef(hasPlusAccess);
   plusAccess.current = hasPlusAccess;
@@ -102,6 +107,7 @@ export function useWorkoutData({ uid, hasPlusAccess, now }: UseWorkoutDataOption
     latestSplitRevision.current = null;
     remoteSettingsSignature.current = null;
     settingsWritesInFlight.current.clear();
+    allTimeBackfillStarted.current = null;
   }, [uid]);
 
   // A saved split snapshot can render while the server verifies its revision.
@@ -233,6 +239,61 @@ export function useWorkoutData({ uid, hasPlusAccess, now }: UseWorkoutDataOption
     const latest = latestSplitRevision.current;
     if (liveSyncEnabled && latest?.uid === uid) splitCache.current?.observe(latest.revision, latest.mutationId);
   }, [uid, liveSyncEnabled]);
+
+  // Older accounts predate the lifetime aggregate fields. Backfill them once
+  // from existing history so future Progress loads need no history scan.
+  useEffect(() => {
+    if (!uid || !db || remoteSettings?.userId !== uid || remoteSettings.allTimeWeight !== undefined) return;
+    if (allTimeBackfillStarted.current === uid) return;
+    allTimeBackfillStarted.current = uid;
+    const firestore = db;
+    void (async () => {
+      try {
+        const result = await getDocsFromServer(query(collection(firestore, 'users', uid, 'history')));
+        const timeZone = remoteSettings?.timeZone || 'Asia/Kolkata';
+        const currentKeys = aggregatePeriodKeys(now, timeZone);
+        const totals = result.docs.reduce((summary, item) => {
+          const record = item.data().data as WorkoutRecord;
+          const keys = aggregatePeriodKeys(record.startedAt, timeZone);
+          return {
+            weight: summary.weight + (Number(record.volume) || 0),
+            workouts: summary.workouts + 1,
+            sets: summary.sets + (Number(record.sets) || 0),
+            weekKey: currentKeys.week,
+            weekWeight: keys.week === currentKeys.week ? summary.weekWeight + (Number(record.volume) || 0) : summary.weekWeight,
+            weekWorkouts: keys.week === currentKeys.week ? summary.weekWorkouts + 1 : summary.weekWorkouts,
+            weekSets: keys.week === currentKeys.week ? summary.weekSets + (Number(record.sets) || 0) : summary.weekSets,
+            monthKey: currentKeys.month,
+            monthWeight: keys.month === currentKeys.month ? summary.monthWeight + (Number(record.volume) || 0) : summary.monthWeight,
+            monthWorkouts: keys.month === currentKeys.month ? summary.monthWorkouts + 1 : summary.monthWorkouts,
+            monthSets: keys.month === currentKeys.month ? summary.monthSets + (Number(record.sets) || 0) : summary.monthSets,
+          };
+        }, { weight: 0, workouts: 0, sets: 0, weekKey: '', weekWeight: 0, weekWorkouts: 0, weekSets: 0, monthKey: '', monthWeight: 0, monthWorkouts: 0, monthSets: 0 });
+        const settingsRef = doc(firestore, 'users', uid, 'settings', 'main');
+        await runTransaction(firestore, async transaction => {
+          const settingsSnapshot = await transaction.get(settingsRef);
+          if (settingsSnapshot.data()?.allTimeWeight !== undefined) return;
+          transaction.set(settingsRef, {
+            allTimeWeight: totals.weight,
+            allTimeWorkouts: totals.workouts,
+            allTimeSets: totals.sets,
+          currentWeekKey: totals.weekKey,
+          currentWeekWeight: totals.weekWeight,
+          currentWeekWorkouts: totals.weekWorkouts,
+          currentWeekSets: totals.weekSets,
+          currentMonthKey: totals.monthKey,
+          currentMonthWeight: totals.monthWeight,
+          currentMonthWorkouts: totals.monthWorkouts,
+          currentMonthSets: totals.monthSets,
+            updatedAt: Date.now(),
+          }, { merge: true });
+        });
+      } catch (error) {
+        allTimeBackfillStarted.current = null;
+        console.warn('[Repday] Lifetime history aggregate backfill failed', error);
+      }
+    })();
+  }, [uid, remoteSettings?.userId, remoteSettings?.allTimeWeight]);
 
   useEffect(() => {
     if (!uid || !db || remoteSettings?.userId !== uid) return;
@@ -393,12 +454,68 @@ export function useWorkoutData({ uid, hasPlusAccess, now }: UseWorkoutDataOption
   const upsertHistoryItem = useCallback((args: { item: WorkoutRecord }) => {
     if (!uid || !db) return Promise.reject(new Error('Sign in to save workout history.'));
     const { item } = args;
-    return setDoc(doc(db, 'users', uid, 'history', historyDocumentId(item.id)), { clientId: item.id, data: item, startedAt: item.startedAt }, { merge: true });
+    const historyRef = doc(db, 'users', uid, 'history', historyDocumentId(item.id));
+    const settingsRef = doc(db, 'users', uid, 'settings', 'main');
+    return runTransaction(db, async transaction => {
+      const existing = await transaction.get(historyRef);
+      const settingsSnapshot = await transaction.get(settingsRef);
+      transaction.set(historyRef, { clientId: item.id, data: item, startedAt: item.startedAt }, { merge: true });
+      // Retries or updates of the same completed workout must not double count it.
+      if (!existing.exists()) {
+        const keys = aggregatePeriodKeys(item.startedAt, settingsSnapshot.data()?.timeZone || 'Asia/Kolkata');
+        const currentKeys = aggregatePeriodKeys(Date.now(), settingsSnapshot.data()?.timeZone || 'Asia/Kolkata');
+        const sameWeek = settingsSnapshot.data()?.currentWeekKey === currentKeys.week;
+        const sameMonth = settingsSnapshot.data()?.currentMonthKey === currentKeys.month;
+        transaction.set(settingsRef, {
+          allTimeWeight: increment(Number(item.volume) || 0),
+          allTimeWorkouts: increment(1),
+          allTimeSets: increment(Number(item.sets) || 0),
+          currentWeekKey: currentKeys.week,
+          currentWeekWeight: keys.week === currentKeys.week && sameWeek ? increment(Number(item.volume) || 0) : Number(item.volume) || 0,
+          currentWeekWorkouts: keys.week === currentKeys.week && sameWeek ? increment(1) : 1,
+          currentWeekSets: keys.week === currentKeys.week && sameWeek ? increment(Number(item.sets) || 0) : Number(item.sets) || 0,
+          currentMonthKey: currentKeys.month,
+          currentMonthWeight: keys.month === currentKeys.month && sameMonth ? increment(Number(item.volume) || 0) : Number(item.volume) || 0,
+          currentMonthWorkouts: keys.month === currentKeys.month && sameMonth ? increment(1) : 1,
+          currentMonthSets: keys.month === currentKeys.month && sameMonth ? increment(Number(item.sets) || 0) : Number(item.sets) || 0,
+          updatedAt: Date.now(),
+        }, { merge: true });
+      }
+    });
   }, [uid]);
 
   const deleteHistoryItem = useCallback(({ clientId }: { clientId: string }) => {
     if (!uid || !db) return Promise.reject(new Error('Sign in to manage workout history.'));
-    return deleteDoc(doc(db, 'users', uid, 'history', historyDocumentId(clientId)));
+    const historyRef = doc(db, 'users', uid, 'history', historyDocumentId(clientId));
+    const settingsRef = doc(db, 'users', uid, 'settings', 'main');
+    return runTransaction(db, async transaction => {
+      const historySnapshot = await transaction.get(historyRef);
+      const settingsSnapshot = await transaction.get(settingsRef);
+      if (!historySnapshot.exists()) return;
+      const record = historySnapshot.data().data as WorkoutRecord;
+      transaction.delete(historyRef);
+      if (typeof settingsSnapshot.data()?.allTimeWeight === 'number') {
+        const settings = settingsSnapshot.data() || {};
+        const keys = aggregatePeriodKeys(record.startedAt, settings.timeZone || 'Asia/Kolkata');
+        const currentKeys = aggregatePeriodKeys(Date.now(), settings.timeZone || 'Asia/Kolkata');
+        transaction.set(settingsRef, {
+          allTimeWeight: increment(-(Number(record.volume) || 0)),
+          allTimeWorkouts: increment(-1),
+          allTimeSets: increment(-(Number(record.sets) || 0)),
+          ...(keys.week === currentKeys.week && settings.currentWeekKey === currentKeys.week ? {
+            currentWeekWeight: increment(-(Number(record.volume) || 0)),
+            currentWeekWorkouts: increment(-1),
+            currentWeekSets: increment(-(Number(record.sets) || 0)),
+          } : {}),
+          ...(keys.month === currentKeys.month && settings.currentMonthKey === currentKeys.month ? {
+            currentMonthWeight: increment(-(Number(record.volume) || 0)),
+            currentMonthWorkouts: increment(-1),
+            currentMonthSets: increment(-(Number(record.sets) || 0)),
+          } : {}),
+          updatedAt: Date.now(),
+        }, { merge: true });
+      }
+    });
   }, [uid]);
 
   const upsertSplit = useCallback(async ({ item, position }: { item: any; position: number }) => {

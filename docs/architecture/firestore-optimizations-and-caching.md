@@ -255,10 +255,12 @@ The following estimates assume one signed-in browser, a warm app instance, and n
 | Change five preferences, then Save | 1 | Usually 1 settings delivery |
 | Confirm today/tomorrow swap | 1 | Usually 1 settings delivery |
 | Edit ten sets during an unfinished workout | 0 | 0 Firestore operations |
-| Finish that workout | 1 history write | 0 readback on the current device |
+| Finish that workout | 1 history write + 1 lifetime-aggregate update in one transaction | 0 readback on the current device |
 | Open or return to Profile | 0 | 0 profile-photo document reads |
 | Start/reload the app with default history | 0 | Up to 7 one-time history reads |
 | Load seven older workouts | 0 | Up to 7 additional history reads |
+
+The Progress All time summary uses lifetime counters stored on the account settings document rather than loading every historical workout. Existing accounts are backfilled once; later completions increment the counters atomically with the history write, so a warm or fresh launch only uses the settings read already needed for startup.
 
 If the same account is open on two connected devices, a settings change may be delivered to both clients. Split and history changes do not automatically reach the second device; it receives them at its next startup sync or when it explicitly queries history.
 

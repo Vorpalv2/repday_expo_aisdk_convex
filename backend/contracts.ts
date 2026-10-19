@@ -77,6 +77,17 @@ export type WorkoutSettings = {
   restPreferenceSeconds?: 60 | 90 | 120 | 180;
   weightUnit?: WeightUnit;
   remindersEnabled?: boolean;
+  allTimeWeight?: number;
+  allTimeWorkouts?: number;
+  allTimeSets?: number;
+  currentWeekKey?: string;
+  currentWeekWeight?: number;
+  currentWeekWorkouts?: number;
+  currentWeekSets?: number;
+  currentMonthKey?: string;
+  currentMonthWeight?: number;
+  currentMonthWorkouts?: number;
+  currentMonthSets?: number;
 };
 
 /** App-facing read/write contract. Adapters translate these operations to their SDK. */
