@@ -174,6 +174,7 @@ Firebase rules deploy separately from the web app. Expo EAS CLI and Firebase CLI
 ## Further documentation
 
 - [Web rest notifications](docs/web-push.md) and [QStash jobs](docs/qstash.md)
+- [Upstash Redis and QStash architecture](docs/upstash-redis-qstash.md)
 - [Guided training plan builder](docs/training-plan-builder.md)
 - [Premium features, caching and costs](app_design_flow/analysis/premium-features-breakdown/README.md)
 - [AI development token and cost analysis](app_design_flow/analysis/ai-development-token-cost-report.md)
