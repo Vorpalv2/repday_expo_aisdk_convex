@@ -435,6 +435,15 @@ function WorkoutApp({welcomeMessage,billing,workoutData}:{welcomeMessage?:string
   if(tab!=='Progress'||selectedHistoryDate||remoteHistoryStatus!=='CanLoadMore'||remoteHistoryResults.length>=targetCount)return;
   loadMoreHistory(targetCount-remoteHistoryResults.length);
  },[tab,selectedHistoryDate,historyDays,remoteHistoryResults.length,remoteHistoryStatus,loadMoreHistory]);
+ // The all-time volume tile must be based on the complete history, rather than
+ // only the current-week page that is loaded during startup. Continue the
+ // existing cursor pagination one page at a time while All time is selected.
+ // This keeps the initial current-week read cheap for the other filters while
+ // making the all-time total accurate when the user views it.
+ useEffect(()=>{
+  if(tab!=='Progress'||selectedHistoryDate||progressVolumePeriod!=='all'||remoteHistoryStatus!=='CanLoadMore')return;
+  void loadMoreHistory(30);
+ },[tab,selectedHistoryDate,progressVolumePeriod,remoteHistoryResults.length,remoteHistoryStatus,loadMoreHistory]);
  useEffect(()=>{
   if(tab!=='Progress'||!selectedHistoryDate)return;
   const key=selectedHistoryDate.toDateString();
