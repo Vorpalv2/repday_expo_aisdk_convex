@@ -14,7 +14,8 @@ export function zonedDayStart(key: string, timeZone: string): number {
 
 export function activityWeek(now: number, timeZone: string, offset: number) {
   const today = restDayKey(now, timeZone);
-  const startKey = shiftDayKey(today, -weekdayIndexForDayKey(today) + (offset < 0 ? -7 : 0));
+  const weeks = Number.isFinite(offset) ? Math.min(0, Math.trunc(offset)) : 0;
+  const startKey = shiftDayKey(today, -weekdayIndexForDayKey(today) + weeks * 7);
   const endKey = shiftDayKey(startKey, 7);
   const days = Array.from({ length: 7 }, (_, i) => {
     const key = shiftDayKey(startKey, i);

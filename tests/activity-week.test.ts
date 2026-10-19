@@ -3,7 +3,7 @@ import test from 'node:test';
 import { activityWeek } from '../lib/activityWeek';
 import { restDayKey } from '../lib/restDays';
 
-test('activity navigation is bounded to the current and immediately previous Monday–Sunday week', () => {
+test('activity navigation moves one week at a time into history and never into the future', () => {
   const now = Date.parse('2026-10-19T02:00:00Z');
   const current = activityWeek(now, 'Asia/Kolkata', 0);
   const previous = activityWeek(now, 'Asia/Kolkata', -1);
@@ -11,7 +11,10 @@ test('activity navigation is bounded to the current and immediately previous Mon
   assert.equal(previous.startKey, '2026-10-12');
   assert.equal(previous.end, current.start);
   assert.equal(current.days[6].key, '2026-10-25');
-  assert.equal(activityWeek(now, 'Asia/Kolkata', -2).startKey, previous.startKey);
+  const twoWeeksAgo = activityWeek(now, 'Asia/Kolkata', -2);
+  assert.equal(twoWeeksAgo.startKey, '2026-10-05');
+  assert.equal(twoWeeksAgo.end, previous.start);
+  assert.equal(activityWeek(now, 'Asia/Kolkata', -3).end, twoWeeksAgo.start);
   assert.equal(activityWeek(now, 'Asia/Kolkata', 1).startKey, current.startKey);
 });
 
