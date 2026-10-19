@@ -185,6 +185,6 @@ export async function purgeBillingRecords(uid:string) {
   const owned=mappings.filter(row=>row.data.uid===uid);
   const subscriptionIds=new Set(owned.map(row=>row.id));
   const events=await listDocuments('', 'billingEvents');
-  const writes=[documentDelete(`billingAccounts/${uid}`),...owned.map(row=>documentDelete(`billingSubscriptions/${row.id}`)),...events.filter(row=>subscriptionIds.has(row.data.subscriptionId)).map(row=>documentDelete(`billingEvents/${row.id}`))];
+  const writes=[documentDelete(`billingAccounts/${uid}`),documentDelete(`splitQuotas/${uid}`),...owned.map(row=>documentDelete(`billingSubscriptions/${row.id}`)),...events.filter(row=>subscriptionIds.has(row.data.subscriptionId)).map(row=>documentDelete(`billingEvents/${row.id}`))];
   for(let start=0;start<writes.length;start+=400) await commitWrites(writes.slice(start,start+400));
 }

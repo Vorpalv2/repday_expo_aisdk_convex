@@ -39,9 +39,9 @@ test('cycle-end cancellation retains paid access and is idempotent when provider
  await f.exports.cancelSubscription('owner');assert.deepEqual(f.cancels,[true]);
  // Deletion cancels the provider then marks the account for removal. It does
  // not spend another provider/invoice reconciliation just before deletion.
- f.records.set('billingSubscriptions/sub_old',{uid:'owner'});
+ f.records.set('billingSubscriptions/sub_old',{uid:'owner'});f.records.set('splitQuotas/owner',{revision:1});
  f.records.set('billingEvents/event_old',{subscriptionId:'sub_old',at:1});
- await f.exports.cancelSubscription('owner',true);assert.deepEqual(f.cancels,[true,false]);assert.equal(f.records.has('billingAccounts/owner'),false);assert.equal(f.records.has('billingSubscriptions/sub_test'),false);
+ await f.exports.cancelSubscription('owner',true);assert.deepEqual(f.cancels,[true,false]);assert.equal(f.records.has('billingAccounts/owner'),false);assert.equal(f.records.has('splitQuotas/owner'),false);assert.equal(f.records.has('billingSubscriptions/sub_test'),false);
  assert.equal(f.records.has('billingSubscriptions/sub_old'),false);assert.equal(f.records.has('billingEvents/event_old'),false);
 });
 test('resuming current-plan unpaid checkout performs no transaction writes',async()=>{

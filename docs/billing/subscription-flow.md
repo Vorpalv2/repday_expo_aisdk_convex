@@ -847,7 +847,7 @@ not left running for an account that can no longer sign in.
 
 Repday calls `/api/billing/delete-account` after reauthentication and before its
 existing data-removal process. After the provider cancellation succeeds, the
-server removes the Repday-owned `billingAccounts/{uid}` document, every
+server removes the Repday-owned `billingAccounts/{uid}` and `splitQuotas/{uid}` documents, every
 `billingSubscriptions` mapping owned by that UID, and `billingEvents` webhook
 deduplication records tied to those subscription IDs. Razorpay's own payment,
 invoice, and regulatory records remain with Razorpay under its retention rules;
