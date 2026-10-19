@@ -5,6 +5,7 @@ The documentation is grouped by the kind of decision or workflow it describes.
 ## Architecture and data
 
 - [Startup hydration and recovery](architecture/startup-hydration.md)
+- [Performance diagnostics and verification](architecture/performance-diagnostics.md)
 - [App-wide database I/O reference](architecture/app-database-io-reference.md)
 - [Database I/O case study](architecture/database-io-case-study.md)
 - [Firestore optimization guide](architecture/firestore-optimizations-and-caching.md)
