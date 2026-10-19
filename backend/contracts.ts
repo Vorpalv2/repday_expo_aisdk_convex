@@ -88,6 +88,7 @@ export interface WorkoutBackendBindings {
   remoteCollectionsVersion: number;
   loadMoreHistory: (count: number) => void;
   loadHistoryDate: (timestamp: number) => Promise<void>;
+  loadHistoryRange: (start: number, end: number) => Promise<void>;
   syncSplits: (args: { items: Session[] }) => Promise<unknown>;
   syncHistory: (args: { items: WorkoutRecord[] }) => Promise<unknown>;
   upsertHistoryItem: (args: { item: WorkoutRecord }) => Promise<unknown>;

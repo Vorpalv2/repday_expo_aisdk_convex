@@ -76,9 +76,11 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess }: UseWorkoutDat
   const olderHistory = useRef<WorkoutRecord[]>([]);
   const remoteSettingsSignature = useRef<{ uid: string; value: string } | null>(null);
   const settingsWritesInFlight = useRef(new Set<string>());
+  const historyRanges = useRef(new Map<string, Promise<void>>());
   const liveSyncEnabled = hasPlusAccess && remoteSettings?.liveSyncEnabled !== false;
 
   useEffect(() => {
+    historyRanges.current.clear();
     if (!uid || !db) {
       setRemoteSettings(null);
       setRemoteSplits(null);
@@ -310,6 +312,29 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess }: UseWorkoutDat
     }
   }, [uid]);
 
+  const loadHistoryRange = useCallback((start: number, end: number): Promise<void> => {
+    if (!uid || !db) return Promise.reject(new Error('Sign in to load previous activity.'));
+    const key = `${uid}:${start}:${end}`;
+    const cached = historyRanges.current.get(key);
+    if (cached) return cached;
+    const request = getDocsFromServer(query(collection(db, 'users', uid, 'history'),
+      where('startedAt', '>=', start), where('startedAt', '<', end), orderBy('startedAt', 'desc')))
+      .then(result => {
+        if (auth?.currentUser?.uid !== uid) return;
+        const records = result.docs.map(item => item.data().data as WorkoutRecord);
+        const olderById = new Map(olderHistory.current.map(item => [item.id, item]));
+        records.forEach(item => olderById.set(item.id, item));
+        olderHistory.current = [...olderById.values()];
+        setRemoteHistoryResults(current => {
+          const byId = new Map(current.map(item => [item.id, item]));
+          records.forEach(record => byId.set(record.id, record));
+          return [...byId.values()].sort((a, b) => b.startedAt - a.startedAt);
+        });
+      }).catch(error => { historyRanges.current.delete(key); throw error; });
+    historyRanges.current.set(key, request);
+    return request;
+  }, [uid]);
+
   const syncSplits = useCallback(async ({ items }: { items: any[] }) => {
     const firestore = db;
     if (!uid || !firestore) return;
@@ -418,6 +443,7 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess }: UseWorkoutDat
     remoteCollectionsVersion,
     loadMoreHistory,
     loadHistoryDate,
+    loadHistoryRange,
     syncSplits,
     syncHistory,
     upsertHistoryItem,
