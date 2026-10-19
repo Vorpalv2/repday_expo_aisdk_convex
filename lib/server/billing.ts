@@ -1,5 +1,5 @@
 import { FREE_SPLIT_LIMIT, SANDBOX_AMOUNT_PAISE, type BillingStatus } from '../billingTypes';
-import { adminCredential, readDocument, documentWrite, readVersionedDocument, conditionalDocumentWrite, commitWrites, ServerError } from './firebaseAdmin';
+import { adminCredential, readDocument, documentWrite, documentDelete, readVersionedDocument, conditionalDocumentWrite, commitWrites, listDocuments, ServerError } from './firebaseAdmin';
 import { invalidateBillingAccount, readBillingAccount } from './billingCache';
 
 type Subscription = { id:string; plan_id:string; status:string; notes?:{firebase_uid?:string}; has_scheduled_changes?:boolean; paid_count?:number };
@@ -148,9 +148,11 @@ export async function cancelSubscription(uid:string, deleting=false) {
   if((account?.creatingUntil||0)>Date.now())throw new ServerError(409,'Checkout is being prepared. Wait a moment before deleting your account.');
   if(deleting){
     await commitWrites([conditionalDocumentWrite(path,{...account,deletingUntil:Date.now()+120000},snapshot.version)]);
-    await invalidateBillingAccount(uid);
   }
-  if(!account?.subscriptionId)return account;
+  if(!account?.subscriptionId){
+    if(deleting)await purgeBillingRecords(uid);
+    return account;
+  }
   requireConfig();
   let subscription=await razorpay<Subscription>(`subscriptions/${account.subscriptionId}`);
   if(subscription.notes?.firebase_uid!==uid)throw new ServerError(403,'Subscription verification failed.');
@@ -162,7 +164,10 @@ export async function cancelSubscription(uid:string, deleting=false) {
       scheduled=atEnd;
     }
   }else scheduled=false;
-  if(deleting)return account;
+  if(deleting){
+    await purgeBillingRecords(uid);
+    return account;
+  }
   const changes={status:subscription.status,cancellationScheduled:scheduled,updatedAt:Date.now()};
   // Preserve the already-verified paidUntil. Cancelling renewal must not revoke
   // the remaining paid period, and requires no second invoice reconciliation.
@@ -170,4 +175,16 @@ export async function cancelSubscription(uid:string, deleting=false) {
   await commitWrites([conditionalDocumentWrite(path,value,snapshot.version)]);
   await invalidateBillingAccount(uid);
   return value;
+}
+
+// Remove Repday-owned billing metadata after the provider subscription has
+// been cancelled. Razorpay's own payment records remain with Razorpay where
+// legally required; they are never treated as Repday entitlement records.
+export async function purgeBillingRecords(uid:string) {
+  const mappings=await listDocuments('', 'billingSubscriptions');
+  const owned=mappings.filter(row=>row.data.uid===uid);
+  const subscriptionIds=new Set(owned.map(row=>row.id));
+  const events=await listDocuments('', 'billingEvents');
+  const writes=[documentDelete(`billingAccounts/${uid}`),...owned.map(row=>documentDelete(`billingSubscriptions/${row.id}`)),...events.filter(row=>subscriptionIds.has(row.data.subscriptionId)).map(row=>documentDelete(`billingEvents/${row.id}`))];
+  for(let start=0;start<writes.length;start+=400) await commitWrites(writes.slice(start,start+400));
 }

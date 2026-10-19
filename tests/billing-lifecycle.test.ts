@@ -13,7 +13,7 @@ function fixture(){
  let clockTime=Date.now(), invoicePaid=true;
  class Clock extends Date { static now(){return clockTime;} }
  class ServerError extends Error{constructor(public status:number,message:string){super(message);}}
- const storage={ServerError,adminCredential:()=>({}),readDocument:async(path:string)=>{documentReads+=1;return records.has(path)?structuredClone(records.get(path)):null;},documentWrite:(path:string,value:any,merge=false)=>({path,value,merge}),inTransaction:async(work:any)=>{const {result,writes}=await work('test-txn');committedWrites+=writes.length;for(const write of writes)records.set(write.path,write.merge?{...records.get(write.path),...write.value}:write.value);return result;}};
+  const storage={ServerError,adminCredential:()=>({}),readDocument:async(path:string)=>{documentReads+=1;return records.has(path)?structuredClone(records.get(path)):null;},listDocuments:async(_parent:string,collectionId:string)=>[...records.entries()].filter(([path])=>path.startsWith(`${collectionId}/`)).map(([path,data])=>({id:path.split('/').at(-1),data:structuredClone(data)})),documentDelete:(path:string)=>({path,delete:true}),documentWrite:(path:string,value:any,merge=false)=>({path,value,merge}),inTransaction:async(work:any)=>{const {result,writes}=await work('test-txn');committedWrites+=writes.length;for(const write of writes)records.set(write.path,write.merge?{...records.get(write.path),...write.value}:write.value);return result;}};
  const versions=new Map<string,string>();let revision=0;
  Object.assign(storage,{
   readVersionedDocument:async(path:string)=>({data:await storage.readDocument(path),version:records.has(path)?versions.get(path)||'initial':null}),
@@ -21,7 +21,7 @@ function fixture(){
   commitWrites:async(writes:any[])=>{
    for(const write of writes){if('version' in write&&write.version!==(records.has(write.path)?versions.get(write.path)||'initial':null))throw new ServerError(409,'Billing changed');}
    committedWrites+=writes.length;
-   return {writeResults:writes.map(write=>{records.set(write.path,write.merge?{...records.get(write.path),...write.value}:write.value);const updateTime=`version-${++revision}`;versions.set(write.path,updateTime);return {updateTime};})};
+   return {writeResults:writes.map(write=>{if(write.delete){records.delete(write.path);versions.delete(write.path);return {updateTime:`version-${++revision}`};}records.set(write.path,write.merge?{...records.get(write.path),...write.value}:write.value);const updateTime=`version-${++revision}`;versions.set(write.path,updateTime);return {updateTime};})};
   }
  });
  const cache={readBillingAccount:async(uid:string)=>storage.readDocument(`billingAccounts/${uid}`),invalidateBillingAccount:async()=>{}};
@@ -39,7 +39,10 @@ test('cycle-end cancellation retains paid access and is idempotent when provider
  await f.exports.cancelSubscription('owner');assert.deepEqual(f.cancels,[true]);
  // Deletion cancels the provider then marks the account for removal. It does
  // not spend another provider/invoice reconciliation just before deletion.
- await f.exports.cancelSubscription('owner',true);assert.deepEqual(f.cancels,[true,false]);assert.ok(f.records.get('billingAccounts/owner').deletingUntil>f.now());
+ f.records.set('billingSubscriptions/sub_old',{uid:'owner'});
+ f.records.set('billingEvents/event_old',{subscriptionId:'sub_old',at:1});
+ await f.exports.cancelSubscription('owner',true);assert.deepEqual(f.cancels,[true,false]);assert.equal(f.records.has('billingAccounts/owner'),false);assert.equal(f.records.has('billingSubscriptions/sub_test'),false);
+ assert.equal(f.records.has('billingSubscriptions/sub_old'),false);assert.equal(f.records.has('billingEvents/event_old'),false);
 });
 test('resuming current-plan unpaid checkout performs no transaction writes',async()=>{
  const f=fixture();f.setStatus('created');f.setPaid(false);

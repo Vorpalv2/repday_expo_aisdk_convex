@@ -31,15 +31,17 @@ async function fixture(mode:'test'|'live'='test'){
    if(url.pathname.endsWith(':commit')){
     beforeCommit?.();beforeCommit=undefined;
     for(const w of body.writes){
-     const key=w.update.name.split('/documents/')[1],pre=w.currentDocument;
+     const key=(w.update?.name||w.delete).split('/documents/')[1],pre=w.currentDocument;
      if(pre&&(pre.exists===false?records.has(key):versions.get(key)!==pre.updateTime))return Response.json({error:{status:'FAILED_PRECONDITION'}},{status:400});
     }
     return Response.json({writeResults:body.writes.map((w:any)=>{
-     const key=w.update.name.split('/documents/')[1];
-     records.set(key,w.updateMask?{...records.get(key),...w.update.fields}:w.update.fields);
+     const key=(w.update?.name||w.delete).split('/documents/')[1];
+     if(w.delete)records.delete(key);
+     else records.set(key,w.updateMask?{...records.get(key),...w.update.fields}:w.update.fields);
      const updateTime=`2026-10-17T00:00:${String(++revision).padStart(2,'0')}.000000Z`;versions.set(key,updateTime);return {updateTime};
     })});
    }
+   if(url.pathname.endsWith(':runQuery'))return Response.json([]);
    const key=decodeURIComponent(url.pathname.split('/documents/')[1]);
    return records.has(key)?Response.json({name:key,fields:records.get(key),updateTime:versions.get(key)}):Response.json({error:{status:'NOT_FOUND'}},{status:404});
   }
@@ -61,6 +63,7 @@ async function fixture(mode:'test'|'live'='test'){
   async get(key:string){const value=await this.command(['GET',key]);return value?JSON.parse(value):null;}
   async set(key:string,value:any){return this.command(['SET',key,JSON.stringify(value)]);}
   async del(key:string){return this.command(['DEL',key]);}
+  async scan(_cursor:string|number,_options:any){return ['0',[]] as [string,string[]];}
  }
  const env={EXPO_PUBLIC_FIREBASE_PROJECT_ID:'fixture',EXPO_PUBLIC_FIREBASE_API_KEY:'fixture',FIREBASE_ADMIN_SERVICE_ACCOUNT:JSON.stringify({project_id:'fixture',client_email:'test@example.test',private_key:pem}),UPSTASH_REDIS_REST_URL:'https://redis.fixture',UPSTASH_REDIS_REST_TOKEN:'fixture',RAZORPAY_MODE:mode,RAZORPAY_KEY_ID:`rzp_${mode}_fixture`,RAZORPAY_KEY_SECRET:'secret',RAZORPAY_PLAN_ID:'plan_fixture',RAZORPAY_PLAN_AMOUNT_PAISE:'7500',RAZORPAY_WEBHOOK_SECRET:'secret',BILLING_ENABLED:'true'};
  const modules=new Map<string,any>();
@@ -70,6 +73,7 @@ async function fixture(mode:'test'|'live'='test'){
   const code=ts.transpileModule(readFileSync(new URL(`../${path}.ts`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   vm.runInNewContext(code,{exports,require:(name:string)=>{
    if(name==='@upstash/redis')return {Redis};
+   if(name.endsWith('/webPush'))return {purgePushSubscriptions:async()=>{}};
    const resolved=new URL(name,`file:///${path}.ts`).pathname.slice(1);return load(resolved);
   },process:{env},Date,AbortSignal,Response,Request,TextEncoder,Uint8Array,btoa,atob,crypto:webcrypto,URLSearchParams,setTimeout,Math,Object,fetch});return exports;
  }
@@ -102,7 +106,7 @@ test('expired status reads use no provider reconciliation',async()=>{
  const f=await fixture();f.seed({subscriptionId:'sub_fixture',status:'active',paidUntil:Date.now()-1000});const r=await f.load('app/api/billing+api').GET(f.request());assert.equal(r.status,200);assert.equal((await r.json()).premium,false);assert.equal(f.calls(),5);
 });
 test('deletion billing preparation fits the budget without invoice reconciliation',async()=>{
- const f=await fixture();f.seed({subscriptionId:'sub_fixture',status:'active',paidUntil:f.end*1000});f.setPaid();const r=await f.load('app/api/billing/delete-account+api').POST(f.request({}));assert.equal(r.status,200,JSON.stringify(await r.clone().json()));assert.equal(f.calls(),8);
+ const f=await fixture();f.seed({subscriptionId:'sub_fixture',status:'active',paidUntil:f.end*1000});f.setPaid();const r=await f.load('app/api/billing/delete-account+api').POST(f.request({}));assert.equal(r.status,200,JSON.stringify(await r.clone().json()));assert.equal(f.calls(),10);
 });
 test('signed webhook fits the cold request budget',async()=>{
  const f=await fixture();f.seed({subscriptionId:'sub_fixture',status:'created',paidUntil:null});f.setPaid();

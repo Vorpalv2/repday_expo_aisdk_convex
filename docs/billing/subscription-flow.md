@@ -846,13 +846,19 @@ and Firebase Auth. If cancellation fails, stop deletion so a recurring charge is
 not left running for an account that can no longer sign in.
 
 Repday calls `/api/billing/delete-account` after reauthentication and before its
-existing data-removal process. Server-owned billing audit records may remain;
-account deletion and billing-record retention are separate product decisions.
-The current app has not implemented a refund/dispute policy or general billing
-record erasure workflow.
+existing data-removal process. After the provider cancellation succeeds, the
+server removes the Repday-owned `billingAccounts/{uid}` document, every
+`billingSubscriptions` mapping owned by that UID, and `billingEvents` webhook
+deduplication records tied to those subscription IDs. Razorpay's own payment,
+invoice, and regulatory records remain with Razorpay under its retention rules;
+Repday cannot erase those provider records through Firestore. The server also
+removes the account's Upstash Redis web-push keys, so any already-queued QStash
+delivery finds no subscription and exits without sending a notification.
 
 **Checkpoint:** cancellation keeps already-paid access, expiry rejects paid
-features, and account deletion does not leave an active mandate behind.
+features, account deletion does not leave an active mandate behind, and the
+Repday-owned billing metadata is removed before the Firebase Auth identity is
+deleted.
 
 ## 15. Test the complete lifecycle
 

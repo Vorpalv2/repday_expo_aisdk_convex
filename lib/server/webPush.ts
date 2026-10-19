@@ -99,6 +99,20 @@ export function pushRedis() {
   return url && token ? new Redis({ url, token, automaticDeserialization: false }) : null;
 }
 
+// Remove every browser/device subscription owned by an account. Queued QStash
+// deliveries do not retain a usable subscription after these keys disappear;
+// the delivery handler will safely return "Skipped".
+export async function purgePushSubscriptions(uid: string) {
+  const redis = pushRedis();
+  if (!redis) return;
+  let cursor: string | number = '0';
+  do {
+    const [next, keys]: [string, string[]] = await redis.scan(cursor, { match: `repday:push:${uid}:*`, count: 100 });
+    if (keys.length) await redis.del(...keys);
+    cursor = next;
+  } while (String(cursor) !== '0');
+}
+
 export async function authorizePush(request: Request): Promise<string | Response> {
   const token = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) return Response.json({ error: 'Sign in to enable rest alerts.' }, { status: 401 });

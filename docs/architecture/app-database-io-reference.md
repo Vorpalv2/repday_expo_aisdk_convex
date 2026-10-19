@@ -270,7 +270,7 @@ The server caches paid account status in Redis for up to four hours, bounded by 
 | Explicit Refresh access, manual/no subscription | 1 account | 0 |
 | Explicit Refresh access, subscription present | Account 1 + mapping 1 = 2 | 0 or 1 account |
 | Cancel renewal | 1 account | Normally 1 account; preserves verified paid-until date |
-| Prepare account deletion | 1 account | 1 deletion-lease account write when configured |
+| Prepare account deletion | 1 account + 2 top-level billing collection queries | 1 deletion-lease write + billing metadata deletes (up to 400 per commit) when configured |
 
 Razorpay subscription, invoice, payment and token requests are provider API calls, not Firestore reads. Failed checkout can add a cleanup write; version conflicts can require retries. Payment verification callbacks can retry while provider state settles. The hosted runtime's outbound HTTP call limit is also different from Firestore operation counts: OAuth token acquisition, authentication, REST begin/commit, provider calls and Redis can all consume outbound requests.
 
@@ -289,7 +289,7 @@ Deletion reauthenticates first, then prepares/cancels billing, then reads and de
 - Each discovered nested set collection.
 - Each of six user subcollections: settings, splits, history, activeWorkouts, profilePhotos and coachConversations. The active-workout collection is consequently queried twice in this path.
 
-Budget returned-document reads with a minimum for each empty query, plus one delete per discovered user/set document and one parent user-document delete. Photo bytes/object deletion are Firebase Storage work, not Firestore document operations. The count grows with saved history/transcripts and cannot be summarized as one read/one delete. Billing audit/mapping/event records are separate from the enumerated user subcollections; deletion preparation is not a bulk deletion of every backend billing record. Local `repday.*` keys are cleared after successful account deletion.
+Budget returned-document reads with a minimum for each empty query, plus one delete per discovered user/set document and one parent user-document delete. Photo bytes/object deletion are Firebase Storage work, not Firestore document operations. The count grows with saved history/transcripts and cannot be summarized as one read/one delete. Billing metadata is separate from the user subcollections: deletion now cancels the provider subscription first, then removes the Repday-owned `billingAccounts/{uid}` document, all `billingSubscriptions` mappings owned by the UID, and webhook idempotency events tied to those subscription IDs. It also scans and removes the account's Upstash Redis push-subscription keys; queued QStash deliveries become harmless no-ops because their Redis key is gone. Razorpay's own payment records remain subject to provider retention requirements. Local `repday.*` keys are cleared after successful account deletion.
 
 Signing out, linking Google, contact email, profile identifiers shown from Auth, and copying an identifier use no direct Firestore document writes; auth transitions and notification cleanup can cause their usual follow-on app behavior.
 
