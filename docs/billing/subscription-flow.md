@@ -6,7 +6,7 @@ Updated: 17 October 2026 (Asia/Kolkata).
 commits instead of the billing transaction sequences described in the original
 walkthrough below. Status reads do not reconcile provider invoices; signed
 payment verification and webhooks do. See the
-[hosting request-budget incident and current flow](billing-worker-subrequest-incident.md)
+[hosting request-budget incident and current flow](../incidents/billing-worker-subrequest-incident.md)
 for the measured 10-fetch limit, current implementation and verification.
 These changes have been deployed to the hosted web app. The publication and
 deployment notes below describe earlier stages of the project.

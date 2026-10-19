@@ -131,7 +131,7 @@ For production debugging, inspect the API logs together with the Upstash Redis a
 
 - [QStash job lifecycle](qstash.md)
 - [Web rest notifications](web-push.md)
-- [AI request rate limiting](../app_design_flow/system%20design/ai-rate-limiting.md)
-- [Subscription flow and billing cache](subscription-flow.md)
-- [App-wide database I/O reference](app-database-io-reference.md)
+- [AI request rate limiting](<../../app_design_flow/system design/ai-rate-limiting.md>)
+- [Subscription flow and billing cache](../billing/subscription-flow.md)
+- [App-wide database I/O reference](../architecture/app-database-io-reference.md)
 

@@ -315,8 +315,8 @@ The current always-on `onSnapshot` call is limited to the settings document. The
 | `lib/restDays.ts` | Date keys, effective schedule calculation, and temporary schedule swaps |
 | `backend/firebase/trainingPlans.ts` | Final generated-plan installation |
 | `backend/contracts.ts` | Shared backend binding and settings types |
-| `docs/firestore-quota-incident-2026-10-16.md` | Original quota incident, evidence, diagnosis, and immediate remediation |
-| `docs/settings-preference-write-amplification.md` | Detailed analysis of the preference write-amplification issue |
+| `../incidents/firestore-quota-incident-2026-10-16.md` | Original quota incident, evidence, diagnosis, and immediate remediation |
+| `settings-preference-write-amplification.md` | Detailed analysis of the preference write-amplification issue |
 
 ## Rules for future changes
 

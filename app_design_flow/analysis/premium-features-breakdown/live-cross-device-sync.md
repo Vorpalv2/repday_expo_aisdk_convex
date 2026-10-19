@@ -90,4 +90,4 @@ Free users keep saved splits, completed-history cloud storage and cache-first ac
 - `backend/firebase/useWorkoutData.ts`: startup hydration, bounded queries and optional listeners.
 - `backend/firebase/client.ts`: Firestore web persistent-cache initialization.
 - `app/index.tsx`: draft preferences, Plus gate and settings Save/Cancel.
-- `docs/cache-first-splits-history-live-sync.md`: detailed implementation and cost model.
+- `docs/architecture/cache-first-splits-history-live-sync.md`: detailed implementation and cost model.

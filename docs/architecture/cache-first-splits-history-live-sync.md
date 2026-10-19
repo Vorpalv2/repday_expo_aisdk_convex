@@ -122,7 +122,7 @@ It contains preferences such as theme, weekly plan, country/time zone, and the l
 | `backend/contracts.ts` | `liveSyncEnabled` settings contract |
 | `app/index.tsx` | Plus preference UI, Save/Cancel draft, local split/history persistence |
 | `backend/firebase/client.ts` | Persistent Firestore browser cache initialization |
-| `docs/firestore-optimizations-and-caching.md` | Broader Firestore optimization and caching reference |
+| `firestore-optimizations-and-caching.md` | Broader Firestore optimization and caching reference |
 
 ## How to verify manually
 

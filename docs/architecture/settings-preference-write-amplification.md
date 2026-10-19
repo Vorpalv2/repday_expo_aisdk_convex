@@ -88,4 +88,4 @@ If an autosave experience is preferred later, debounce the save until the user h
 ## Related code
 
 - [Firestore adapter](/Users/aakash/Desktop/ai_projects/expo_workout_tracker/backend/firebase/useWorkoutData.ts)
-- [Firestore quota incident](/Users/aakash/Desktop/ai_projects/expo_workout_tracker/docs/firestore-quota-incident-2026-10-16.md)
+- [Firestore quota incident](../incidents/firestore-quota-incident-2026-10-16.md)

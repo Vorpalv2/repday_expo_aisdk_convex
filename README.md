@@ -114,11 +114,11 @@ The packages below are direct dependencies from [`package.json`](package.json). 
 - **Rest reminders:** native notifications and opt-in web push, with delayed delivery handled by QStash.
 - **Sharing and native extras:** workout screenshots, incoming shared workout content, a custom Android timer module, and iOS Live Activities in compatible native builds.
 
-Persistent Firestore caching has no fixed 30-minute expiry. Firestore's reconnect billing rules and device storage retention are separate concerns. See the [caching implementation](docs/cache-first-splits-history-live-sync.md), [optimization guide](docs/firestore-optimizations-and-caching.md), and [database I/O case study](docs/database-io-case-study.md).
+Persistent Firestore caching has no fixed 30-minute expiry. Firestore's reconnect billing rules and device storage retention are separate concerns. See the [caching implementation](docs/architecture/cache-first-splits-history-live-sync.md), [optimization guide](docs/architecture/firestore-optimizations-and-caching.md), and [database I/O case study](docs/architecture/database-io-case-study.md).
 
-Split startup now uses a complete per-account local snapshot and the revision in the existing settings document. Unchanged cached splits require zero split-document reads. See [revision caching, migration, and read/write costs](docs/split-revision-cache.md).
+Split startup now uses a complete per-account local snapshot and the revision in the existing settings document. Unchanged cached splits require zero split-document reads. See [revision caching, migration, and read/write costs](docs/architecture/split-revision-cache.md).
 
-For onboarding, preferences, split mutations, workouts, history, AI Coach, notifications, billing and deletion, see the [app-wide database I/O reference](docs/app-database-io-reference.md).
+For onboarding, preferences, split mutations, workouts, history, AI Coach, notifications, billing and deletion, see the [app-wide database I/O reference](docs/architecture/app-database-io-reference.md).
 
 ## AI Coach
 
@@ -135,7 +135,7 @@ The configured Coach model is GPT-5 mini through Vercel AI Gateway. Model usage 
 
 Razorpay Checkout, server REST calls and signed webhooks manage subscriptions. Razorpay is an external integration; this repository does not install the Razorpay Node SDK. Plus is subscription-based, while Complimentary access is granted manually and unlocks the same features.
 
-See the [subscription flow](docs/subscription-flow.md), [live-payment setup](docs/razorpay-live-cutover.md), and [premium feature breakdown](app_design_flow/analysis/premium-features-breakdown/README.md), including [live sync behavior and costs](app_design_flow/analysis/premium-features-breakdown/live-cross-device-sync.md).
+See the [subscription flow](docs/billing/subscription-flow.md), [live-payment setup](docs/billing/razorpay-live-cutover.md), and [premium feature breakdown](app_design_flow/analysis/premium-features-breakdown/README.md), including [live sync behavior and costs](app_design_flow/analysis/premium-features-breakdown/live-cross-device-sync.md).
 
 ## Backend architecture
 
@@ -173,8 +173,9 @@ Firebase rules deploy separately from the web app. Expo EAS CLI and Firebase CLI
 
 ## Further documentation
 
-- [Web rest notifications](docs/web-push.md) and [QStash jobs](docs/qstash.md)
-- [Upstash Redis and QStash architecture](docs/upstash-redis-qstash.md)
-- [Guided training plan builder](docs/training-plan-builder.md)
+- [Repday documentation index](docs/README.md)
+- [Web rest notifications](docs/notifications/web-push.md) and [QStash jobs](docs/notifications/qstash.md)
+- [Upstash Redis and QStash architecture](docs/notifications/upstash-redis-qstash.md)
+- [Guided training plan builder](docs/guides/training-plan-builder.md)
 - [Premium features, caching and costs](app_design_flow/analysis/premium-features-breakdown/README.md)
 - [AI development token and cost analysis](app_design_flow/analysis/ai-development-token-cost-report.md)

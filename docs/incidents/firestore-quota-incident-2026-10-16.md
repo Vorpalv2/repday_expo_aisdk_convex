@@ -4,7 +4,7 @@
 **Service:** Cloud Firestore Standard database, `repday-expo`
 **Impact:** The app received Firestore `resource-exhausted` errors after exhausting the daily free-tier read and write allowance. Realtime data stopped loading reliably until the daily quota reset. The exact source of the full read and write totals has not been proven.
 
-The implemented follow-up architecture is documented in [Firestore optimizations and caching](./firestore-optimizations-and-caching.md).
+The implemented follow-up architecture is documented in [Firestore optimizations and caching](../architecture/firestore-optimizations-and-caching.md).
 
 ## What users saw
 
@@ -136,4 +136,4 @@ AI Coach still checks access in its server endpoint, but a cache hit avoids a Fi
 ## Related implementation
 
 - [Firestore adapter](/Users/aakash/Desktop/ai_projects/expo_workout_tracker/backend/firebase/useWorkoutData.ts)
-- [Firebase backend notes](/Users/aakash/Desktop/ai_projects/expo_workout_tracker/backend/README.md)
+- [Firebase backend notes](../../backend/README.md)
