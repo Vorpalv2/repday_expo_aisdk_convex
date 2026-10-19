@@ -83,6 +83,8 @@ Existing accounts without a revision additionally incur one initialization trans
 
 Other startup exceptions include automatic-rest catch-up, expired daily focus clearing, a timezone/week rollover, changes in Plus/live-sync status while startup is resolving, failed request retries, and any required preference synchronization. A transition between one-shot history fetch and live history listener can retarget the query and incur additional reads. Do not assume all session-start operations are captured by a fixed number such as nine.
 
+Startup now begins the data hook alongside billing after the entry route is ready; initialized accounts can render before history completes. Stalled initial hydration allows two automatic subscription retries, which can add reads only when those retries occur. See [Startup hydration and recovery](startup-hydration.md) for timing, cache boundaries and verification.
+
 ## 5. Sign-up and onboarding
 
 ### Authentication and onboarding choices

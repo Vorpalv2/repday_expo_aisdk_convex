@@ -64,20 +64,22 @@ const settingsSignature = (settings: Record<string, any>) => stableSerialize(
 );
 
 export type UseWorkoutDataOptions = {
-  isAuthenticated: boolean;
+  uid: string | null;
   hasPlusAccess: boolean;
   now: number;
 };
 
-export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorkoutDataOptions): WorkoutBackendBindings {
-  const uid = isAuthenticated ? auth?.currentUser?.uid ?? null : null;
+export function useWorkoutData({ uid, hasPlusAccess, now }: UseWorkoutDataOptions): WorkoutBackendBindings {
   const [remoteSettings, setRemoteSettings] = useState<WorkoutSettings | null>();
   const [remoteSplits, setRemoteSplits] = useState<WorkoutBackendBindings['remoteSplits']>();
   const [remoteHistoryResults, setRemoteHistoryResults] = useState<WorkoutRecord[]>([]);
   const [remoteHistoryStatus, setRemoteHistoryStatus] = useState('LoadingFirstPage');
+  const [remoteHistoryWeek, setRemoteHistoryWeek] = useState<{ start: number; end: number } | null>(null);
   const [remoteCollectionsVersion, setRemoteCollectionsVersion] = useState(0);
   const [remoteDataError, setRemoteDataError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const startupAttempts = useRef(0);
+  const [startupExhausted, setStartupExhausted] = useState(false);
   const splitCache = useRef<SplitCacheCoordinator | null>(null);
   const latestSplitRevision = useRef<{ uid: string; revision: number; mutationId?: string } | null>(null);
   const mutationSequence = useRef(0);
@@ -91,6 +93,35 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
   const historyTimeZone = remoteSettings?.timeZone || 'Asia/Kolkata';
   const historyDay = restDayKey(now, historyTimeZone);
   const currentWeek = useMemo(() => activityWeek(now, historyTimeZone, 0), [historyDay, historyTimeZone]);
+
+  useEffect(() => {
+    startupAttempts.current = 0;
+    setStartupExhausted(false);
+    setRemoteHistoryResults([]);
+    setRemoteHistoryWeek(null);
+    latestSplitRevision.current = null;
+    remoteSettingsSignature.current = null;
+    settingsWritesInFlight.current.clear();
+  }, [uid]);
+
+  // A saved split snapshot can render while the server verifies its revision.
+  // History only blocks uninitialized accounts, where legacy import needs to
+  // distinguish an empty account from one that already has saved workouts.
+  const startupReady = remoteSettings?.userId === uid && remoteSplits?.userId === uid &&
+    Boolean(remoteSettings?.initialized || remoteSplits?.sessions.length || remoteHistoryWeek);
+  useEffect(() => {
+    if (!uid || startupReady || startupExhausted) return;
+    const timer = setTimeout(() => {
+      if (startupAttempts.current >= 2) {
+        setStartupExhausted(true);
+        setRemoteDataError(error => error ?? 'Your account data is taking longer than usual to load. Check your connection and try again.');
+        return;
+      }
+      startupAttempts.current += 1;
+      setRetryCount(count => count + 1);
+    }, remoteDataError ? startupAttempts.current === 0 ? 1000 : 2000 : 8000);
+    return () => clearTimeout(timer);
+  }, [uid, startupReady, startupExhausted, retryCount, remoteDataError]);
 
   useEffect(() => {
     historyRanges.current.clear();
@@ -114,8 +145,8 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
     let migrating = false;
     let sawServerRevision = false;
     let lastPublishedRevision: number | null = null;
-    setRemoteSettings(undefined);
-    setRemoteSplits(undefined);
+    setRemoteSettings(current => current?.userId === uid ? current : undefined);
+    setRemoteSplits(current => current?.userId === uid ? current : undefined);
     setRemoteDataError(null);
     const coordinator = new SplitCacheCoordinator({
       uid,
@@ -152,6 +183,9 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
     splitCache.current = coordinator;
     const unsubscribeSettings = onSnapshot(settingsRef, { includeMetadataChanges: true }, snapshot => {
       if (cancelled) return;
+      // A cold cache cannot tell us that the account has no settings. Wait for
+      // the server before exposing defaults or deciding to import local data.
+      if (snapshot.metadata.fromCache && !snapshot.exists()) return;
       const authUser = auth?.currentUser;
       const fields = snapshot.exists() ? snapshot.data() : {};
       const settings = {
@@ -176,12 +210,14 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
           const current = await transaction.get(settingsRef);
           if (!validRevision(current.data()?.splitsRevision)) transaction.set(settingsRef, { splitsRevision: 0, ...(!current.exists() ? { initialized: false } : {}) }, { merge: true });
         }).catch(error => {
+          if (cancelled) return;
           migrating = false;
           console.warn('[Repday] Split revision migration failed', error);
           setRemoteDataError('Could not prepare your split cache. Please retry.');
         });
       }
     }, error => {
+      if (cancelled) return;
       console.warn('[Repday] Settings listener failed', error);
       setRemoteDataError('Could not connect to your account data. Check your connection and try again.');
     });
@@ -206,6 +242,7 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
     const rangeKey = `${uid}:${start}:${end}`;
     const weekQuery = weekHistoryQuery(db, uid, start, end);
     historyCursor.current = null;
+    setRemoteHistoryWeek(null);
     setRemoteHistoryStatus('LoadingFirstPage');
     const applyWeek = (snapshot: { docs: { data: () => any }[] }, fromServer: boolean) => {
       if (cancelled) return;
@@ -216,7 +253,7 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
       if (fromServer) {
         confirmed = true;
         historyRanges.current.set(rangeKey, Promise.resolve());
-        setRemoteCollectionsVersion(version => version + 1);
+        setRemoteHistoryWeek({ start, end });
       }
     };
     const failed = (error: unknown) => {
@@ -239,10 +276,9 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
   }, [uid, remoteSettings?.userId, currentWeek.start, currentWeek.end, liveSyncEnabled, retryCount]);
 
   const retryRemoteData = useCallback(() => {
+    startupAttempts.current = 0;
+    setStartupExhausted(false);
     setRemoteDataError(null);
-    setRemoteSettings(undefined);
-    setRemoteSplits(undefined);
-    setRemoteHistoryStatus('LoadingFirstPage');
     setRetryCount((count) => count + 1);
   }, []);
 
@@ -252,6 +288,7 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
     setRemoteHistoryStatus('LoadingMore');
     try {
       const next = await getDocsFromServer(olderHistoryQuery(db, uid, currentWeek.start, count, cursor));
+      if (auth?.currentUser?.uid !== uid) return;
       const page = next.docs.map((item) => item.data().data as WorkoutRecord);
       historyCursor.current = next.docs.at(-1) ?? historyCursor.current;
       setRemoteHistoryResults((current) => {
@@ -260,6 +297,7 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
       });
       setRemoteHistoryStatus(next.size < count ? 'Exhausted' : 'CanLoadMore');
     } catch (error) {
+      if (auth?.currentUser?.uid !== uid) return;
       console.warn('[Repday] Older history failed', error);
       setRemoteHistoryStatus('CanLoadMore');
       setRemoteDataError('Could not load older workout history. Check your connection and try again.');
@@ -279,6 +317,7 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
         where('startedAt', '<', end.getTime()),
         orderBy('startedAt', 'desc'),
       ));
+      if (auth?.currentUser?.uid !== uid) return;
       const page = result.docs.map((item) => item.data().data as WorkoutRecord);
       setRemoteHistoryResults((current) => {
         const byId = new Map(current.map((item) => [item.id, item]));
@@ -286,6 +325,7 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
         return [...byId.values()].sort((a, b) => b.startedAt - a.startedAt);
       });
     } catch (error) {
+      if (auth?.currentUser?.uid !== uid) return;
       console.warn('[Repday] Workout history date query failed', error);
       setRemoteDataError('Could not load workout history for that date. Check your connection and try again.');
     }
@@ -436,12 +476,13 @@ export function useWorkoutData({ isAuthenticated, hasPlusAccess, now }: UseWorko
   }, [uid]);
 
   return {
-    remoteDataError,
+    remoteDataError: startupReady || startupExhausted ? remoteDataError : null,
     retryRemoteData,
     remoteSettings,
     remoteSplits,
     remoteHistoryResults,
     remoteHistoryStatus,
+    remoteHistoryWeek,
     remoteCollectionsVersion,
     loadMoreHistory,
     loadHistoryDate,

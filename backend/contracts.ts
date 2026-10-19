@@ -87,7 +87,9 @@ export interface WorkoutBackendBindings {
   remoteSplits: { userId?: string; sessions: Session[] } | null | undefined;
   remoteHistoryResults: WorkoutRecord[];
   remoteHistoryStatus: string;
-  /** Changes only after an explicit startup cloud sync for splits/history. */
+  /** The current week whose complete contents have been confirmed by the server. */
+  remoteHistoryWeek: { start: number; end: number } | null;
+  /** Changes after a confirmed split revision, independently of history loading. */
   remoteCollectionsVersion: number;
   loadMoreHistory: (count: number) => void;
   loadHistoryDate: (timestamp: number) => Promise<void>;

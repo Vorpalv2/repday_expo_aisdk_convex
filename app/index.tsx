@@ -7,7 +7,7 @@ import { AccessibilityInfo, ActivityIndicator, Animated, AppState, BackHandler, 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useBackendAuth } from '../backend/BackendProvider';
 import { useWorkoutData } from '../backend/useWorkoutData';
-import type { ActiveWorkout, FocusDraft, Move, Session, SetEntry, TrainingGoal, WeightUnit, WorkoutRecord } from '../backend/contracts';
+import type { ActiveWorkout, FocusDraft, Move, Session, SetEntry, TrainingGoal, WeightUnit, WorkoutRecord, WorkoutBackendBindings } from '../backend/contracts';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
@@ -137,15 +137,17 @@ function ScrollCue({visible,atBottom,onPress,bottom=22}:{visible:boolean;atBotto
 export default function HomeScreen(){
  const {isLoading,isAuthenticated,user}=useBackendAuth();
  const billing=useBilling(isAuthenticated?user?.uid??null:null);
- const [minimumLoadingElapsed,setMinimumLoadingElapsed]=useState(false);
+ const [entryRoute,setEntryRoute]=useState<'auth'|'onboarding'|'app'|null>(null);
+ const [dataNow,setDataNow]=useState(Date.now);
+ const hasPlusAccess=billing.status?.enforced===false||Boolean(billing.status?.premium&&(billing.status.accessSource==='manual'||(billing.status.paidUntil!==null&&billing.status.paidUntil>Date.now())));
+ // Start reads alongside billing once auth and the entry route are ready.
+ const workoutData=useWorkoutData({uid:entryRoute==='app'?user?.uid??null:null,hasPlusAccess,now:dataNow});
  const [authWaitExpired,setAuthWaitExpired]=useState(false);
  const [billingWaitExpired,setBillingWaitExpired]=useState(false);
- const [entryRoute,setEntryRoute]=useState<'auth'|'onboarding'|'returningLoading'|'newUserLoading'|'app'|null>(null);
  const [welcomeMessage,setWelcomeMessage]=useState<string|null>(null);
- const finishEntryLoading=useCallback(()=>setEntryRoute('app'),[]);
  useEffect(()=>{
-  const timer=setTimeout(()=>setMinimumLoadingElapsed(true),3000);
-  return()=>clearTimeout(timer);
+  const timer=setInterval(()=>setDataNow(Date.now()),30000);
+  return()=>clearInterval(timer);
  },[]);
  useEffect(()=>{
   if(!isLoading){setAuthWaitExpired(false);return;}
@@ -165,13 +167,12 @@ export default function HomeScreen(){
   return()=>{alive=false;};
  },[isAuthenticated,user?.uid,entryRoute]);
  if(isLoading&&authWaitExpired)return <StartupRecoveryScreen message="Repday is taking longer than expected to connect. Check your internet connection, then reload the app."/>;
- if(isLoading||!minimumLoadingElapsed||(isAuthenticated&&!billing.status&&!billing.error&&!billingWaitExpired))return <LoadingScreen status={billing.status}/>;
+ if(isLoading||(isAuthenticated&&!billing.status&&!billing.error&&!billingWaitExpired))return <LoadingScreen status={billing.status}/>;
  const accountName=user?.displayName?.trim()||user?.email?.split('@')[0]?.replace(/[._-]+/g,' ').replace(/\b\w/g,letter=>letter.toUpperCase())||'there';
- if(!isAuthenticated)return <SignInScreen onAuthAttempt={()=>setEntryRoute('auth')} onExistingUser={name=>{setWelcomeMessage(`Welcome back, ${name||accountName}!`);setEntryRoute('returningLoading');}} onNewUser={name=>{setWelcomeMessage(`Welcome, ${name||accountName}!`);setEntryRoute('onboarding');}}/>;
+ if(!isAuthenticated)return <SignInScreen onAuthAttempt={()=>setEntryRoute('auth')} onExistingUser={name=>{setWelcomeMessage(`Welcome back, ${name||accountName}!`);setEntryRoute('app');}} onNewUser={name=>{setWelcomeMessage(`Welcome, ${name||accountName}!`);setEntryRoute('onboarding');}}/>;
  if(entryRoute===null)return <LoadingScreen status={billing.status}/>;
- if(entryRoute==='auth'||entryRoute==='onboarding')return <SignInScreen mode={entryRoute} onAuthAttempt={()=>setEntryRoute('auth')} onExistingUser={name=>{setWelcomeMessage(`Welcome back, ${name||accountName}!`);setEntryRoute('returningLoading');}} onNewUser={name=>{setWelcomeMessage(`Welcome, ${name||accountName}!`);setEntryRoute('onboarding');}} onOnboardingComplete={()=>setEntryRoute('newUserLoading')}/>;
- if(entryRoute==='returningLoading'||entryRoute==='newUserLoading')return <LoadingScreen status={billing.status} onComplete={finishEntryLoading}/>;
- return <WorkoutApp welcomeMessage={welcomeMessage} billing={billing}/>;
+ if(entryRoute==='auth'||entryRoute==='onboarding')return <SignInScreen mode={entryRoute} onAuthAttempt={()=>setEntryRoute('auth')} onExistingUser={name=>{setWelcomeMessage(`Welcome back, ${name||accountName}!`);setEntryRoute('app');}} onNewUser={name=>{setWelcomeMessage(`Welcome, ${name||accountName}!`);setEntryRoute('onboarding');}} onOnboardingComplete={()=>setEntryRoute('app')}/>;
+ return <WorkoutApp key={user?.uid} welcomeMessage={welcomeMessage} billing={billing} workoutData={workoutData}/>;
 }
 
 function StartupRecoveryScreen({message,onRetry}:{message:string;onRetry?:()=>void}){
@@ -182,7 +183,7 @@ function StartupRecoveryScreen({message,onRetry}:{message:string;onRetry?:()=>vo
  return <SafeAreaView style={{flex:1,backgroundColor:'#fff',justifyContent:'center',alignItems:'center',padding:28}}><Text style={{fontSize:25,fontWeight:'800',color:'#17191d',textAlign:'center'}}>Still loading?</Text><Text style={{fontSize:16,lineHeight:24,color:'#69727c',textAlign:'center',marginTop:10,maxWidth:360}}>{message}</Text><Pressable accessibilityRole="button" onPress={retry} style={{marginTop:22,backgroundColor:'#3478f6',borderRadius:18,paddingHorizontal:26,paddingVertical:14}}><Text style={{fontSize:16,fontWeight:'800',color:'#fff'}}>Try again</Text></Pressable></SafeAreaView>;
 }
 
-function LoadingScreen({onComplete,status}:{onComplete?:()=>void;status:BillingStatus|null}){
+function LoadingScreen({status}:{status:BillingStatus|null}){
  useWhiteLoadingChrome();
  const showPlus=!!status?.premium&&(status.accessSource==='manual'||(typeof status.paidUntil==='number'&&status.paidUntil>Date.now()));
  const [frame,setFrame]=useState(0);
@@ -195,11 +196,6 @@ function LoadingScreen({onComplete,status}:{onComplete?:()=>void;status:BillingS
   const timer=setInterval(()=>setFrame(current=>(current+1)%8),145);
   return()=>clearInterval(timer);
  },[]);
- useEffect(()=>{
-  if(!onComplete)return;
-  const complete=setTimeout(onComplete,3000);
-  return()=>clearTimeout(complete);
- },[onComplete]);
  return <SafeAreaView style={{flex:1,backgroundColor:'#fff',alignItems:'center',justifyContent:'center'}}><StatusBar style="dark"/>
   <View accessibilityRole="image" accessibilityLabel={showPlus?'Repday Plus loading animation':'Repday loading animation'} style={{width:frameWidth,height:frameHeight}}>
    <View style={{width:frameWidth,height:frameHeight,overflow:'hidden'}}>
@@ -230,7 +226,7 @@ function WorkoutConfetti(){
  return <View pointerEvents="none" style={{position:'absolute',top:0,left:0,right:0,bottom:0,zIndex:20,overflow:'hidden'}}>{particles.map((particle,index)=>{const value=progress[index];return <Animated.View key={index} style={{position:'absolute',left:particle.left,top:-16,width:particle.width,height:particle.height,borderRadius:particle.round?6:2,backgroundColor:particle.color,opacity:value.interpolate({inputRange:[0,.08,.72,1],outputRange:[0,1,1,0]}),transform:[{translateY:value.interpolate({inputRange:[0,1],outputRange:[0,Dimensions.get('window').height*.9]})},{translateX:value.interpolate({inputRange:[0,1],outputRange:[0,particle.drift]})},{rotate:value.interpolate({inputRange:[0,1],outputRange:['0deg',`${(index%2?1:-1)*(480+(index%4)*180)}deg`]})}]}}/>;})}</View>;
 }
 
-function WorkoutApp({welcomeMessage,billing}:{welcomeMessage?:string|null;billing:ReturnType<typeof useBilling>}){
+function WorkoutApp({welcomeMessage,billing,workoutData}:{welcomeMessage?:string|null;billing:ReturnType<typeof useBilling>;workoutData:WorkoutBackendBindings}){
  const [theme,setTheme]=useState<ThemeName>('light');
  const historyDetailScrollRef=useRef<ScrollView|null>(null); const historyDetailScrollMetrics=useRef({offset:0,viewport:0,content:0}); const [historyDetailCanScroll,setHistoryDetailCanScroll]=useState(false); const [historyDetailAtBottom,setHistoryDetailAtBottom]=useState(false); const activeExerciseListRef=useRef<FlatList<Exercise>|null>(null); const activeExerciseScrollMetrics=useRef({offset:0,viewport:0,content:0}); const [activeExerciseCanScroll,setActiveExerciseCanScroll]=useState(false); const [activeExerciseAtBottom,setActiveExerciseAtBottom]=useState(false); const splitEditorScrollRef=useRef<ScrollView|null>(null); const splitEditorScrollMetrics=useRef({offset:0,viewport:0,content:0}); const [splitEditorCanScroll,setSplitEditorCanScroll]=useState(false); const [splitEditorAtBottom,setSplitEditorAtBottom]=useState(false);
  const [profileEmailVisible,setProfileEmailVisible]=useState(false); const [accountDetailsOpen,setAccountDetailsOpen]=useState(false); const [accountDetails,setAccountDetails]=useState<AccountDetails|null>(null); const [accountDetailsLoading,setAccountDetailsLoading]=useState(false); const [accountDetailsError,setAccountDetailsError]=useState(''); const [accountDeleteOpen,setAccountDeleteOpen]=useState(false); const [accountDeletePassword,setAccountDeletePassword]=useState(''); const [accountDeleteError,setAccountDeleteError]=useState(''); const [accountDeleteBusy,setAccountDeleteBusy]=useState(false); const [accountDeleteStage,setAccountDeleteStage]=useState(''); const [installPrompt,setInstallPrompt]=useState<BeforeInstallPromptEvent|null>(null); const [appInstalled,setAppInstalled]=useState(false);
@@ -331,20 +327,15 @@ function WorkoutApp({welcomeMessage,billing}:{welcomeMessage?:string|null;billin
  const [activeDataHydrated,setActiveDataHydrated]=useState(false);
  const [pendingOnboardingPreferences,setPendingOnboardingPreferences]=useState<OnboardingPreferences|null>(null);
  const {
-  remoteSettings,remoteSplits,remoteHistoryResults,remoteHistoryStatus,remoteCollectionsVersion,loadMoreHistory,loadHistoryDate,loadHistoryRange,remoteDataError,retryRemoteData,
+  remoteSettings,remoteSplits,remoteHistoryResults,remoteHistoryStatus,remoteHistoryWeek,remoteCollectionsVersion,loadMoreHistory,loadHistoryDate,loadHistoryRange,remoteDataError,retryRemoteData,
   syncSplits:syncSplitsCloud,syncHistory:syncHistoryCloud,
   upsertHistoryItem:upsertHistoryItemCloud,deleteHistoryItem:deleteHistoryCloud,
   upsertSplit:upsertSplitCloud,appendSplitExercise:appendSplitExerciseCloud,updateSplitSetTargets:updateSplitSetTargetsCloud,deleteSplit:deleteSplitCloud,reorderSplitPositions:reorderSplitPositionsCloud,
   saveSettings:saveSettingsCloud,saveScheduleOverrides:saveScheduleOverridesCloud,saveRestDay:saveRestDayCloud,
- }=useWorkoutData({isAuthenticated,hasPlusAccess,now});
- const userDataReady=storageReady&&(!isAuthenticated||remoteSettings===null||(!!remoteSettings?.userId&&cloudOwnerId===remoteSettings.userId));
- const [dataWaitExpired,setDataWaitExpired]=useState(false);
- useEffect(()=>{
-  if(userDataReady){setDataWaitExpired(false);return;}
-  const timer=setTimeout(()=>setDataWaitExpired(true),20000);
-  return()=>clearTimeout(timer);
- },[userDataReady]);
+ }=workoutData;
+ const userDataReady=storageReady&&(!isAuthenticated||(remoteSettings?.userId===user?.uid&&cloudOwnerId===user?.uid));
  const notifyToast=(message:string)=>{setToast(message);toastMotion.stopAnimation();toastMotion.setValue(0);Animated.timing(toastMotion,{toValue:1,duration:180,easing:Easing.out(Easing.cubic),useNativeDriver:true}).start();if(toastTimer.current)clearTimeout(toastTimer.current);toastTimer.current=setTimeout(()=>Animated.timing(toastMotion,{toValue:0,duration:160,useNativeDriver:true}).start(({finished})=>{if(finished)setToast(null);}),1840);};
+ useEffect(()=>{if(userDataReady&&remoteDataError)notifyToast(remoteDataError);},[userDataReady,remoteDataError]);
  useEffect(()=>{
   if(Platform.OS!=='web'||typeof window==='undefined')return;
   const standalone=()=>window.matchMedia('(display-mode: standalone)').matches||Boolean((navigator as Navigator&{standalone?:boolean}).standalone);
@@ -377,14 +368,14 @@ function WorkoutApp({welcomeMessage,billing}:{welcomeMessage?:string|null;billin
  useEffect(()=>{if(storageReady)AsyncStorage.setItem('repday.sessions',JSON.stringify(sessions)).catch(()=>{});},[sessions,storageReady]);
  useEffect(()=>{
   const owner=remoteSettings?.userId;
-  if(!isAuthenticated||!storageReady||!owner||!remoteSplits||remoteHistoryStatus==='LoadingFirstPage'||(cloudOwnerId===owner&&hydratedCollectionsVersion.current===remoteCollectionsVersion))return;
+  if(!isAuthenticated||!storageReady||!owner||remoteSplits?.userId!==owner||(!remoteSettings.initialized&&!remoteSplits.sessions.length&&!remoteHistoryWeek)||(cloudOwnerId===owner&&hydratedCollectionsVersion.current===remoteCollectionsVersion))return;
   const hasCloudData=Boolean(remoteSettings.initialized||remoteSplits.sessions.length||remoteHistoryResults.length);
   if(hasCloudData){
    const restoredRestPreference=pendingOnboardingPreferences?.restPreferenceSeconds??(([60,90,120,180] as number[]).includes(Number(remoteSettings.restPreferenceSeconds))?remoteSettings.restPreferenceSeconds as 60|90|120|180:90);
    const remoteSessions=addCatalogMedia(withoutSampleSplits(remoteSplits.sessions as Session[]),catalogRef.current);
    setSessions(remoteSessions);
    if(remoteSettings.selectedSessionId&&!sampleSplitIds.has(String(remoteSettings.selectedSessionId)))setSelected(String(remoteSettings.selectedSessionId));else setSelected('');
-   setHistory(current=>{const range=activityWeek(now,String(remoteSettings.timeZone??'Asia/Kolkata'),0);return mergeHistoryWeek(localOwnerId===owner?current:[],remoteHistoryResults as WorkoutRecord[],range.start,range.end).filter(record=>!deletedHistoryIdsRef.current.has(record.id));});
+   setHistory(current=>{const cached=localOwnerId===owner?current:[];if(!remoteHistoryWeek)return cached;return mergeHistoryWeek(cached,remoteHistoryResults as WorkoutRecord[],remoteHistoryWeek.start,remoteHistoryWeek.end).filter(record=>!deletedHistoryIdsRef.current.has(record.id));});
    const remoteFocusDraft=remoteSettings.focusDraft as FocusDraft|null;
    if(remoteFocusDraft?.day===new Date().toDateString())setFocusDraft(remoteFocusDraft);else setFocusDraft(null);
    setWeeklyPlan(withoutSamplePlan(remoteSettings.weeklyPlan as Record<number,string|null>));setGuidedPreferences(planPreferencesSchema.safeParse(remoteSettings.guidedPlan?.preferences).data);setRestDays(remoteSettings.restDays??{});setScheduleOverrides(remoteSettings.scheduleOverrides??{});setAutoRestNextDate(remoteSettings.autoRestNextDate??null);
@@ -403,15 +394,17 @@ function WorkoutApp({welcomeMessage,billing}:{welcomeMessage?:string|null;billin
    const freshRestPreference=pendingOnboardingPreferences?.restPreferenceSeconds??90;setSessions(initial.map(item=>({...item,moves:item.moves.map(move=>({...move,restSeconds:String(freshRestPreference)}))})));setHistory([]);setWeeklyPlan({});setRestDays({});setAutoRestNextDate(null);setFocusDraft(null);setActiveWorkout(null);setWorking(null);setRestEndsAt(null);setSelected('');setCountry(pendingOnboardingPreferences?.country??'India');setTimeZone(pendingOnboardingPreferences?.timeZone??'Asia/Kolkata');setTheme(allowedTheme(pendingOnboardingPreferences?.theme));setActivityDefaultCollapsed(pendingOnboardingPreferences?.activityDefaultCollapsed??true);setActivityCollapsed(pendingOnboardingPreferences?.activityDefaultCollapsed??true);setTrainingGoal(pendingOnboardingPreferences?.trainingGoal??'strength');setRestPreferenceSeconds(freshRestPreference);setRestDurationSeconds(freshRestPreference);setWeightUnit(pendingOnboardingPreferences?.weightUnit??'kg');setRemindersEnabled(pendingOnboardingPreferences?.remindersEnabled??false);setModal(null);
   }
   setActiveDataHydrated(true);setCloudOwnerId(owner);hydratedCollectionsVersion.current=remoteCollectionsVersion;setLocalOwnerId(owner);AsyncStorage.setItem('repday.localOwner',owner).catch(()=>{});
- },[isAuthenticated,remoteSettings,remoteSplits,remoteHistoryResults,remoteHistoryStatus,remoteCollectionsVersion,storageReady,cloudOwnerId,localOwnerId,sessions,history,syncSplitsCloud,syncHistoryCloud,pendingOnboardingPreferences]);
+ },[isAuthenticated,remoteSettings,remoteSplits,remoteHistoryResults,remoteHistoryWeek,remoteCollectionsVersion,storageReady,cloudOwnerId,localOwnerId,sessions,history,syncSplitsCloud,syncHistoryCloud,pendingOnboardingPreferences]);
  useEffect(()=>{
-  if(!isAuthenticated||!remoteSettings?.userId||cloudOwnerId!==remoteSettings.userId||remoteHistoryStatus==='LoadingFirstPage')return;
+  if(!isAuthenticated||!remoteSettings?.userId||cloudOwnerId!==remoteSettings.userId||!remoteHistoryWeek)return;
   setHistory(current=>{
-   const known=new Set(current.map(record=>record.id));
    const incoming=(remoteHistoryResults as WorkoutRecord[]).filter(record=>!deletedHistoryIdsRef.current.has(record.id));
-   return [...current.filter(record=>!deletedHistoryIdsRef.current.has(record.id)),...incoming.filter(record=>!known.has(record.id))].sort((a,b)=>b.startedAt-a.startedAt);
+   const refreshed=mergeHistoryWeek(current,incoming,remoteHistoryWeek.start,remoteHistoryWeek.end);
+   const byId=new Map(refreshed.filter(record=>!deletedHistoryIdsRef.current.has(record.id)).map(record=>[record.id,record]));
+   incoming.forEach(record=>byId.set(record.id,record));
+   return [...byId.values()].sort((a,b)=>b.startedAt-a.startedAt);
   });
- },[remoteHistoryResults,remoteHistoryStatus,isAuthenticated,remoteSettings?.userId,cloudOwnerId]);
+ },[remoteHistoryResults,remoteHistoryWeek,isAuthenticated,remoteSettings?.userId,cloudOwnerId]);
  useEffect(()=>{
   if(historyDays==='week')return;
   const targetCount=historyDays;
@@ -749,9 +742,7 @@ function WorkoutApp({welcomeMessage,billing}:{welcomeMessage?:string|null;billin
 
  const askAboutCompletedWorkout=(record:WorkoutRecord)=>{const prompt=historyCoachPrompt.trim();if(!prompt||coachBusy)return;setCoachLaunch({id:Date.now().toString(),question:prompt,record});setHistoryCoachPrompt('');setHistoryAiOpen(false);setModal(null);setTab('Coach');};
  const confirmDeleteAccount=async()=>{if(accountDeleteBusy)return;setAccountDeleteBusy(true);setAccountDeleteStage('Verifying your account…');setAccountDeleteError('');try{await deleteAccount(accountDeletePassword||undefined,setAccountDeleteStage);const keys=await AsyncStorage.getAllKeys();await AsyncStorage.multiRemove(keys.filter(key=>key.startsWith('repday.')));setAccountDeleteOpen(false);}catch(error){setAccountDeleteError(error instanceof Error?error.message:'Could not delete the account. Try again.');}finally{setAccountDeleteBusy(false);setAccountDeleteStage('');}};
- const retryAccountData=()=>{setDataWaitExpired(false);retryRemoteData();setTimeout(()=>setDataWaitExpired(true),20000);};
- if(remoteDataError)return <StartupRecoveryScreen message={remoteDataError} onRetry={retryAccountData}/>;
- if(dataWaitExpired&&!userDataReady)return <StartupRecoveryScreen message="Your account data is taking longer than usual to load. Check your connection and try again." onRetry={retryAccountData}/>;
+ if(remoteDataError&&!userDataReady)return <StartupRecoveryScreen message={remoteDataError} onRetry={retryRemoteData}/>;
  if(!userDataReady)return <LoadingScreen status={billing.status}/>;
 
  const renderWorkoutStatusPills=(side:boolean,small=false)=>working?<>{/* Shared readouts, positioned by the active view. */}<View accessibilityLabel={`Total lifted ${displayVolume(totalLift).toLocaleString()} ${weightUnit}`} style={{position:side?'relative':'absolute',right:side?undefined:16,bottom:side?undefined:96,width:small?92:side?100:146,minHeight:small?42:60,paddingHorizontal:small?5:9,paddingVertical:small?3:5,borderRadius:30,alignItems:'center',justifyContent:'center',backgroundColor:currentTheme==='dark'?'rgba(28,35,44,.82)':'rgba(255,255,255,.82)',borderWidth:1,borderColor:currentTheme==='dark'?'rgba(255,255,255,.2)':'rgba(255,255,255,.9)',shadowColor:'#000',shadowOpacity:.14,shadowRadius:12,shadowOffset:{width:0,height:4},elevation:5,zIndex:18}}><Text numberOfLines={1} adjustsFontSizeToFit style={[styles.liftNumber,{fontFamily:appTitleFontFamily,fontVariant:['tabular-nums'],fontSize:small?19:23,lineHeight:small?22:27,textAlign:'center'}]}>{displayVolume(totalLift).toLocaleString()} <Text style={[styles.kg,{fontSize:small?11:14}]}>{weightUnit}</Text></Text><Text style={{fontFamily:appTitleFontFamily,fontSize:small?9:side?10:12,lineHeight:small?11:14,fontWeight:'800',color:themeColor('#3478f6'),textAlign:'center'}}>{activeCompleted}/{working.moves.reduce((total,move)=>total+move.sets.length,0)} SETS COMPLETE</Text></View>{restEndsAt&&restSeconds>0&&<View style={[styles.restPill,{position:side?'relative':'absolute',left:side?undefined:16,width:small?92:side?100:120,bottom:side?undefined:96,marginHorizontal:0,marginTop:0,marginBottom:0,minHeight:small?42:52,paddingHorizontal:0,paddingVertical:0,zIndex:20,elevation:4,backgroundColor:'#3478f6',borderWidth:1,borderColor:'rgba(255,255,255,.55)',shadowColor:'#000',shadowOpacity:.16,shadowRadius:12,shadowOffset:{width:0,height:4},borderRadius:28,alignItems:'center',justifyContent:'center'}]}><Pressable accessibilityRole="button" accessibilityLabel={restBarExpanded?"Hide rest timer controls":"Show rest timer controls"} accessibilityState={{expanded:restBarExpanded}} onPress={()=>{LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);setRestBarExpanded(value=>!value);}} style={[styles.timerPill,{width:small?92:side?100:120,height:small?40:50,paddingHorizontal:6,paddingVertical:2,flexDirection:'column',alignItems:'center',justifyContent:'center',gap:0,backgroundColor:'transparent',borderWidth:0,shadowOpacity:0,elevation:0}]}><Text style={{fontSize:9,lineHeight:11,fontWeight:'800',letterSpacing:1,color:'#dceaff'}}>REST</Text><View style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:5}}><View style={styles.liveDot}/><Text style={[styles.timerText,{fontFamily:appTitleFontFamily,fontSize:small?23:27,lineHeight:small?25:31,color:'#fff'}]}>{formatTime(restSeconds)}</Text><View style={{transform:[{rotate:restBarExpanded?'0deg':'180deg'}]}}><Icon name="chevron" size={14} color="#fff"/></View></View></Pressable>{restBarExpanded&&<Animated.View style={{position:'absolute',left:0,bottom:side?undefined:58,top:side?(small?48:58):undefined,zIndex:30,elevation:12,opacity:restBarMotion,transform:[{translateY:restBarMotion.interpolate({inputRange:[0,1],outputRange:[8,0]})}]}}><View style={{flexDirection:'row',alignItems:'center',gap:8,padding:6,borderRadius:30,backgroundColor:currentTheme==='dark'?'rgba(28,35,44,.92)':'rgba(255,255,255,.92)',borderWidth:1,borderColor:currentTheme==='dark'?'rgba(255,255,255,.22)':'rgba(255,255,255,.9)',shadowColor:'#000',shadowOpacity:.18,shadowRadius:12,shadowOffset:{width:0,height:5}}}><Pressable accessibilityRole="button" accessibilityLabel="Reset rest timer" style={{width:44,height:44,borderRadius:22,backgroundColor:'#d94b4b',alignItems:'center',justifyContent:'center'}} onPress={()=>{const next=Date.now()+restDurationSeconds*1000;setRestEndsAt(next);setRestBarExpanded(false);if(restNotification.current)Notifications.cancelScheduledNotificationAsync(restNotification.current).catch(()=>{});if(Platform.OS!=='web')Notifications.scheduleNotificationAsync({content:{title:'Rest complete',body:'Time for your next set.'},trigger:{type:Notifications.SchedulableTriggerInputTypes.DATE,date:next}}).then(id=>restNotification.current=id).catch(()=>{});}}><Icon name="reset" color="#fff" size={19}/></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Skip rest timer" style={{width:44,height:44,borderRadius:22,backgroundColor:themeColor('#17191d','background'),alignItems:'center',justifyContent:'center'}} onPress={()=>{setRestEndsAt(null);setRestBarExpanded(false);if(restNotification.current)Notifications.cancelScheduledNotificationAsync(restNotification.current).catch(()=>{});restNotification.current=null;}}><Icon name="skip" color={currentTheme==='dark'?'#000':themeColor('#fff','text')} size={18}/></Pressable></View></Animated.View>}</View>}</>:null;
